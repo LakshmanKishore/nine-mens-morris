@@ -1,0 +1,41 @@
+<?xml version="1.0" encoding="utf-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="-10 -10 620 620" width="620px" height="620px">
+    <rect x="200" y="200" width="200" height="200" style="stroke: #e6e6e6; fill: rgba(0, 0, 0, 0); stroke-width: 5px;"/>
+    <rect x="100" y="100" width="400" height="400" style="stroke: #e6e6e6; fill: rgba(0, 0, 0, 0); stroke-width: 5px;"/>
+    <rect x="0" y="0" width="600" height="600" style="stroke: #e6e6e6; fill: rgba(0, 0, 0, 0); stroke-width: 5px;"/>
+
+    <line style="stroke: #e6e6e6; stroke-width: 3px; fill: rgba(0, 0, 0, 0);" x1="0" y1="300" x2="200" y2="300"/>
+    <line style="stroke: #e6e6e6; stroke-width: 3px; fill: rgba(0, 0, 0, 0);" x1="300" y1="0" x2="300" y2="200"/>
+    <line style="stroke: #e6e6e6; stroke-width: 3px; fill: rgba(0, 0, 0, 0);" x1="600" y1="300" x2="400" y2="300"/>
+    <line style="stroke: #e6e6e6; stroke-width: 3px; fill: rgba(0, 0, 0, 0);" x1="300" y1="400" x2="300" y2="600"/>
+    <!-- Ellipses at intersections -->
+    <!-- Outer rectangle intersections -->
+    <ellipse style="stroke: #e6e6e6;" cx="0" cy="0" rx="7" ry="7"/>
+    <ellipse style="stroke: #e6e6e6;" cx="300" cy="0" rx="7" ry="7"/>
+    <ellipse style="stroke: #e6e6e6;" cx="600" cy="0" rx="7" ry="7"/>
+    <ellipse style="stroke: #e6e6e6;" cx="600" cy="300" rx="7" ry="7"/>
+    <ellipse style="stroke: #e6e6e6;" cx="600" cy="600" rx="7" ry="7"/>
+    <ellipse style="stroke: #e6e6e6;" cx="300" cy="600" rx="7" ry="7"/>
+    <ellipse style="stroke: #e6e6e6;" cx="0" cy="600" rx="7" ry="7"/>
+    <ellipse style="stroke: #e6e6e6;" cx="0" cy="300" rx="7" ry="7"/>
+
+    <!-- Center rectangle intersections -->
+    <ellipse style="stroke: #e6e6e6;" cx="100" cy="100" rx="7" ry="7"/>
+    <ellipse style="stroke: #e6e6e6;" cx="300" cy="100" rx="7" ry="7"/>
+    <ellipse style="stroke: #e6e6e6;" cx="500" cy="100" rx="7" ry="7"/>
+    <ellipse style="stroke: #e6e6e6;" cx="500" cy="300" rx="7" ry="7"/>
+    <ellipse style="stroke: #e6e6e6;" cx="500" cy="500" rx="7" ry="7"/>
+    <ellipse style="stroke: #e6e6e6;" cx="300" cy="500" rx="7" ry="7"/>
+    <ellipse style="stroke: #e6e6e6;" cx="100" cy="500" rx="7" ry="7"/>
+    <ellipse style="stroke: #e6e6e6;" cx="100" cy="300" rx="7" ry="7"/>
+
+    <!-- Inner rectangle intersections -->
+    <ellipse style="stroke: #e6e6e6;" cx="200" cy="200" rx="7" ry="7"/>
+    <ellipse style="stroke: #e6e6e6;" cx="300" cy="200" rx="7" ry="7"/>
+    <ellipse style="stroke: #e6e6e6;" cx="400" cy="200" rx="7" ry="7"/>
+    <ellipse style="stroke: #e6e6e6;" cx="400" cy="300" rx="7" ry="7"/>
+    <ellipse style="stroke: #e6e6e6;" cx="400" cy="400" rx="7" ry="7"/>
+    <ellipse style="stroke: #e6e6e6;" cx="300" cy="400" rx="7" ry="7"/>
+    <ellipse style="stroke: #e6e6e6;" cx="200" cy="400" rx="7" ry="7"/>
+    <ellipse style="stroke: #e6e6e6;" cx="200" cy="300" rx="7" ry="7"/>
+</svg>

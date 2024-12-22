@@ -18,8 +18,8 @@ main {
 
 #board {
   position: relative;
-  width: 90vw;
-  max-width: min(90vw, 600px);
+  width: 100vw;
+  max-width: min(100vw, 600px);
   aspect-ratio: 1;
   width: 100%;
 }
@@ -62,34 +62,38 @@ button {
 }
 
 
+
 /* button[dim="true"]:before {
   opacity: 0.2;
   scale: 0.8;
 } */
 
-@keyframes scale-in {
-  0% {
-    transform: scale(0);
-  }
-
-  100% {
-    transform: scale(1);
-  }
+image[player="0"] {
+  /* Add outline to distinguish if both players has same avatar */
+  outline: 3px solid black;
+  border-radius: 50%;
 }
 
-button[player="0"]:before {
-  background-image: url(./assets/x.svg);
-  animation: scale-in 0.2s ease-in-out;
-}
-
-button[player="1"]:before {
-  background-image: url(./assets/o.svg);
-  animation: scale-in 0.2s ease-in-out;
+image[player="1"] {
+  /* Add outline to distinguish if both players has same avatar */
+  outline: 3px solid white;
+  border-radius: 50%;
 }
 
 
-button:not([disabled]) {
+image[disable-click="0"] {
   cursor: pointer;
+}
+
+image[disable-click="1"] {
+  /* Disable the pointer events on the image */
+  pointer-events: none;
+}
+
+image[remove="1"] {
+  /* Add outline to distinguish if both players has same avatar */
+  outline: 3px solid red;
+  border-radius: 50%;
 }
 
 

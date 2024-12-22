@@ -28,8 +28,8 @@ const RECT_COORDINATES = [
   { x: 0, y: 0, width: 600, height: 600 },
 ]
 
-const ELLIPSE_STROKE_WIDTH = (7).toString()
-const LINE_STROKE_WIDTH = (5).toString()
+const ELLIPSE_STROKE_WIDTH = (10).toString()
+const LINE_STROKE_WIDTH = (7).toString()
 const CELL_SIZE = (+ELLIPSE_STROKE_WIDTH * 4).toString()
 
 function initUI(
@@ -76,26 +76,6 @@ function initUI(
     ellipse.setAttribute("ry", ELLIPSE_STROKE_WIDTH)
     ellipse.setAttribute("style", "stroke: #e6e6e6;")
 
-    // Creating another ellipses for capturing the click
-    const ellipseB = document.createElementNS(
-      "http://www.w3.org/2000/svg",
-      "ellipse"
-    )
-    ellipseB.setAttribute("cx", cells[index].x.toString())
-    ellipseB.setAttribute("cy", cells[index].y.toString())
-    ellipseB.setAttribute("rx", CELL_SIZE)
-    ellipseB.setAttribute("ry", CELL_SIZE)
-    ellipseB.setAttribute("style", "fill: #ffffff00;")
-
-    // const rectangleIndex = Math.floor(index / 8)
-    // const cellIndexInRectangle = index % 8
-    // Set the index with the rectangular index with the cell index
-    // ellipse.setAttribute(
-    //   "index",
-    //   rectangleIndex.toString() + cellIndexInRectangle.toString()
-    // )
-    ellipseB.addEventListener("click", () => Rune.actions.handleClick(index))
-
     // Create a svg image element which will then be used to set the image of avatar
     const image = document.createElementNS(
       "http://www.w3.org/2000/svg",
@@ -104,13 +84,12 @@ function initUI(
 
     image.setAttribute("x", (cells[index].x - +CELL_SIZE).toString())
     image.setAttribute("y", (cells[index].y - +CELL_SIZE).toString())
+    image.setAttribute("width", (+CELL_SIZE * 2).toString())
+    image.setAttribute("height", (+CELL_SIZE * 2).toString())
+    image.addEventListener("click", () => Rune.actions.handleClick(index))
 
     gameBoardSVG.appendChild(ellipse)
-    // Need to add this later for the z-index
-    gameBoardSVG.appendChild(ellipseB)
     gameBoardSVG.appendChild(image)
-
-    // buttonsContainer.appendChild(button)
     return image
   })
 
@@ -136,12 +115,12 @@ function initUI(
 
 Rune.initClient({
   onChange: ({ game, yourPlayerId, action }) => {
-    const { cells, playerIds, winCombo, lastMovePlayerId } = game
+    const { cells, playerIds, lastMovePlayerId } = game
 
     if (!cellImages) initUI(cells, playerIds, yourPlayerId)
 
     if (lastMovePlayerId) board.classList.remove("initial")
-    console.log("Here", lastMovePlayerId)
+    // console.log("Here", lastMovePlayerId)
 
     // Get all the player ids information
     const playersInfo = playerIds.reduce(
@@ -153,8 +132,8 @@ Rune.initClient({
       {} as { [playerId: string]: Player }
     )
 
-    cellImages.forEach((cellImage, i) => {
-      const cellValue: PlayerId | null = cells[i].playerId
+    cellImages.forEach((cellImage, index) => {
+      const cellValue: PlayerId | null = cells[index].playerId
 
       cellImage.setAttribute(
         "player",
@@ -163,21 +142,33 @@ Rune.initClient({
 
       // If cell has a player id then have to show player id's avatar
       if (cellValue) {
-        cellImage.setAttribute("width", (+CELL_SIZE * 2).toString())
-        cellImage.setAttribute("height", (+CELL_SIZE * 2).toString())
         cellImage.setAttribute("href", playersInfo[cellValue].avatarUrl)
-      }
-
-      // button.setAttribute(
-      //   "dim",
-      //   String((winCombo && !winCombo.includes(i)) || (!freeCells && !winCombo))
-      // )
-
-      if (cells[i] || lastMovePlayerId === yourPlayerId || winCombo) {
-        cellImage.setAttribute("disabled", "")
       } else {
-        cellImage.removeAttribute("disabled")
+        cellImage.setAttribute("href", "")
       }
+
+      // Enable the rect button to avoid clicks for these conditions
+      /*
+        1. If the last move player id is not your player id
+        2. If the cell has a player id
+      */
+      if (lastMovePlayerId === yourPlayerId || cells[index].playerId) {
+        cellImage.setAttribute("disable-click", "1")
+      } else {
+        cellImage.setAttribute("disable-click", "0")
+      }
+
+      // If the cell needs to be removed, then set and attribute to remove the cell
+      if (lastMovePlayerId !== yourPlayerId && cells[index].toRemove) {
+        cellImage.setAttribute("remove", "1")
+        cellImage.setAttribute("disable-click", "0")
+      } else {
+        cellImage.setAttribute("remove", "0")
+      }
+
+      // if (!cells[index].disableClick) {
+      //   cellImage.setAttribute("disable-click", "0")
+      // }
     })
 
     playerContainers.forEach((container, i) => {
@@ -187,6 +178,8 @@ Rune.initClient({
       )
     })
 
-    if (action && action.name === "handleClick") selectSound.play()
+    // Play a sound after placing a cell
+    console.log("selectSound", selectSound, action)
+    // if (action && action.name === "handleClick") selectSound.play()
   },
 })

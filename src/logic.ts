@@ -6,9 +6,9 @@ export type Cells = {
   y: number
   playerId: PlayerId | null
   reachableCellIndexes: number[]
-  isPartOfMill: boolean
-  toRemove: boolean
-  disableClick: boolean
+  // isPartOfMill: boolean
+  // toRemove: boolean
+  // disableClick: boolean
 }
 
 export interface GameState {
@@ -18,7 +18,11 @@ export interface GameState {
   playerIds: PlayerId[]
   freeCells?: boolean
   cellPlacedCount: number
-  mills: number[][]
+  possibleMills: number[][]
+  clickableCells: number[]
+  removableCells: number[]
+  cellsPartOfMill: number[]
+  highlightedCellsPartOfMill: number[]
 }
 
 type GameActions = {
@@ -56,223 +60,151 @@ Rune.initLogic({
         y: 0,
         playerId: null,
         reachableCellIndexes: [1, 7],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
       {
         x: 300,
         y: 0,
         playerId: null,
         reachableCellIndexes: [0, 2, 9],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
       {
         x: 600,
         y: 0,
         playerId: null,
         reachableCellIndexes: [1, 3],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
       {
         x: 600,
         y: 300,
         playerId: null,
         reachableCellIndexes: [2, 4, 11],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
       {
         x: 600,
         y: 600,
         playerId: null,
         reachableCellIndexes: [3, 5],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
       {
         x: 300,
         y: 600,
         playerId: null,
         reachableCellIndexes: [4, 6, 13],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
       {
         x: 0,
         y: 600,
         playerId: null,
         reachableCellIndexes: [5, 7],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
       {
         x: 0,
         y: 300,
         playerId: null,
         reachableCellIndexes: [0, 6, 15],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
       {
         x: 100,
         y: 100,
         playerId: null,
         reachableCellIndexes: [9, 15],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
       {
         x: 300,
         y: 100,
         playerId: null,
         reachableCellIndexes: [1, 8, 10, 17],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
       {
         x: 500,
         y: 100,
         playerId: null,
         reachableCellIndexes: [9, 11],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
       {
         x: 500,
         y: 300,
         playerId: null,
         reachableCellIndexes: [3, 10, 12, 19],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
       {
         x: 500,
         y: 500,
         playerId: null,
         reachableCellIndexes: [11, 13],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
       {
         x: 300,
         y: 500,
         playerId: null,
         reachableCellIndexes: [5, 12, 14, 21],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
       {
         x: 100,
         y: 500,
         playerId: null,
         reachableCellIndexes: [13, 15],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
       {
         x: 100,
         y: 300,
         playerId: null,
         reachableCellIndexes: [7, 8, 14, 23],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
       {
         x: 200,
         y: 200,
         playerId: null,
         reachableCellIndexes: [17, 23],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
       {
         x: 300,
         y: 200,
         playerId: null,
         reachableCellIndexes: [9, 16, 18],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
       {
         x: 400,
         y: 200,
         playerId: null,
         reachableCellIndexes: [17, 19],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
       {
         x: 400,
         y: 300,
         playerId: null,
         reachableCellIndexes: [18, 11, 20],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
       {
         x: 400,
         y: 400,
         playerId: null,
         reachableCellIndexes: [19, 21],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
       {
         x: 300,
         y: 400,
         playerId: null,
         reachableCellIndexes: [13, 20, 22],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
       {
         x: 200,
         y: 400,
         playerId: null,
         reachableCellIndexes: [21, 23],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
       {
         x: 200,
         y: 300,
         playerId: null,
         reachableCellIndexes: [15, 16, 22],
-        isPartOfMill: false,
-        toRemove: false,
-        disableClick: false,
       },
     ],
     winCombo: null,
     lastMovePlayerId: allPlayerIds[1],
     playerIds: allPlayerIds,
     cellPlacedCount: 0,
-    mills: [
+    possibleMills: [
       [0, 1, 2],
       [2, 3, 4],
       [4, 5, 6],
@@ -290,41 +222,64 @@ Rune.initLogic({
       [5, 13, 21],
       [7, 15, 23],
     ],
+    clickableCells: [
+      0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20,
+      21, 22, 23, 24,
+    ],
+    removableCells: [],
+    cellsPartOfMill: [],
+    highlightedCellsPartOfMill: [],
   }),
   actions: {
-    handleClick: (cellIndex, { game, playerId, allPlayerIds }) => {
+    // handleClick: (cellIndex, { game, playerId, allPlayerIds }) => {
+    handleClick: (cellIndex, { game, playerId }) => {
       if (game.lastMovePlayerId === playerId) {
-        console.log("True!!!!")
         return
       }
-      console.log("playerId", playerId)
-      console.log("lastMovePlayerId", game.lastMovePlayerId)
-      // if (
-      //   game.cells[cellIndex].playerId !== null ||
-      //   playerId === game.lastMovePlayerId
-      // ) {
-      //   throw Rune.invalidAction()
-      // }
+
+      // Reset the clickable cells
+      game.clickableCells = []
+
+      // Update clickable cells with all the empty cells
+      game.cells.forEach((cell, index) => {
+        if (cell.playerId === null && cellIndex !== index) {
+          game.clickableCells.push(index)
+        }
+      })
 
       // If the cell needs to be removed then remove it
-      if (game.cells[cellIndex].toRemove) {
-        console.log("first if", game.cells[cellIndex].playerId)
+      if (game.removableCells.includes(cellIndex)) {
         // Set the player id to null
         game.cells[cellIndex].playerId = null
-        console.log("first if", game.cells[cellIndex].playerId)
         // Reset all the remove flags
         // TODO: Make this to store recent removed cells and use that to access it here
-        for (let i = 0; i < game.cells.length; i++) {
-          game.cells[i].toRemove = false
-          game.cells[i].disableClick = false
+        // for (let i = 0; i < game.cells.length; i++) {
+        //   game.cells[i].toRemove = false
+        //   game.cells[i].disableClick = false
+        //   game.cells[i].isPartOfMill = false
+        // }
+        // After removing the cell reset the clickable cells
+        if (game.cellPlacedCount <= 17) {
+          // Reset the clickable cells to empty cells
+          game.cells.forEach((cell, index) => {
+            if (cell.playerId === null) {
+              game.clickableCells.push(index)
+            }
+          })
+        } else {
+          // Set the clickable cells to the opponent cells when it's time to move
+          game.cells.forEach((cell, index) => {
+            if (cell.playerId !== playerId) {
+              game.clickableCells.push(index)
+            }
+          })
         }
+        game.removableCells = []
+        game.highlightedCellsPartOfMill = []
         // Change the last move player id
         game.lastMovePlayerId = playerId
         return
       }
-
-      // game.cells[cellIndex] = playerId
-      console.log("allPlayerIds", allPlayerIds)
 
       // Check if the player has clicked on an empty cells
       if (
@@ -332,37 +287,46 @@ Rune.initLogic({
         game.cellPlacedCount <= 17
       ) {
         game.cells[cellIndex].playerId = playerId
-        console.log("Set the cell with the player id", playerId)
-        console.log("game.cells", JSON.stringify(game.cells))
         game.cellPlacedCount += 1
       }
 
-      // Check if any mills has formed
-      for (const mill of game.mills) {
+      let canTakeOpponentCell = false
+
+      // Check if any mills has formed only on the cell where the player has clicked
+      for (const mill of game.possibleMills) {
+        // If the cell is not part of the mill then continue
+        if (!mill.includes(cellIndex)) {
+          continue
+        }
         if (
           game.cells[mill[0]].playerId === playerId &&
           game.cells[mill[1]].playerId === playerId &&
           game.cells[mill[2]].playerId === playerId
         ) {
-          game.cells[mill[0]].isPartOfMill = true
-          game.cells[mill[1]].isPartOfMill = true
-          game.cells[mill[2]].isPartOfMill = true
-          console.log("Win combo", mill)
+          // Add the mill to the cells part of mill
+          game.cellsPartOfMill.push(mill[0], mill[1], mill[2])
+          game.highlightedCellsPartOfMill.push(mill[0], mill[1], mill[2])
+          // game.cells[mill[0]].isPartOfMill = true
+          // game.cells[mill[1]].isPartOfMill = true
+          // game.cells[mill[2]].isPartOfMill = true
           // Make the opponent player's cells clickable and disable the click on all other cells
-          for (const cell of game.cells) {
-            if (
-              cell.playerId !== playerId &&
-              !cell.isPartOfMill &&
-              cell.playerId
-            ) {
-              cell.toRemove = true
-              cell.disableClick = false
+          game.cells.forEach((cell, index) => {
+            if (cell.playerId !== playerId && cell.playerId) {
+              if (!game.cellsPartOfMill.includes(index)) {
+                game.removableCells.push(index)
+                canTakeOpponentCell = true
+              }
             }
-            if (cell.playerId === playerId) {
-              cell.disableClick = true
-            }
+          })
+          // Return only if the player can take the opponent's cell else the player's turn will change
+          if (canTakeOpponentCell) {
+            // Set the clickable cells to removable cells
+            game.clickableCells = game.removableCells
+            return
+          } else {
+            // Reset the highlighted cells part of mill if there are no cells to take
+            game.highlightedCellsPartOfMill = []
           }
-          return
         }
       }
 

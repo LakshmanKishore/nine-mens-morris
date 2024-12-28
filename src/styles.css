@@ -1,3 +1,10 @@
+:root {
+  /* --line-stroke-width: 7px; */
+  --ellipse-stroke-width: 5px;
+  /* --cell-size: calc(var(--ellipse-stroke-width) * 4); */
+  --board-color: #e6e6e6;
+}
+
 body,
 html {
   padding: 0;
@@ -68,32 +75,58 @@ button {
   scale: 0.8;
 } */
 
+image {
+  border-radius: 50%;
+}
+
 image[player="0"] {
   /* Add outline to distinguish if both players has same avatar */
-  outline: 3px solid black;
-  border-radius: 50%;
+  outline: calc(var(--ellipse-stroke-width)) solid black;
 }
 
 image[player="1"] {
   /* Add outline to distinguish if both players has same avatar */
-  outline: 3px solid white;
-  border-radius: 50%;
+  outline: calc(var(--ellipse-stroke-width)) solid white;
 }
 
 
-image[disable-click="0"] {
+image[clickable="1"] {
   cursor: pointer;
 }
 
-image[disable-click="1"] {
+image[clickable="0"] {
   /* Disable the pointer events on the image */
   pointer-events: none;
 }
 
 image[remove="1"] {
   /* Add outline to distinguish if both players has same avatar */
-  outline: 3px solid red;
-  border-radius: 50%;
+  outline: var(--ellipse-stroke-width) solid red;
+}
+
+image[is-part-of-mill="true"] {
+  /* Add outline to distinguish if both players has same avatar */
+  outline: var(--ellipse-stroke-width) solid green;
+}
+
+/* image[clickable="1"] {
+  outline: var(--ellipse-stroke-width) solid yellow;
+} */
+
+
+.svg-rect {
+  stroke: var(--board-color);
+  fill: rgba(0, 0, 0, 0);
+}
+
+svg[your-turn="false"] {
+  opacity: 0.5;
+  pointer-events: none;
+}
+
+svg[your-turn="true"] {
+  opacity: 1;
+  pointer-events: auto;
 }
 
 

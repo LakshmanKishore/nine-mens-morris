@@ -2,7 +2,7 @@ import "./styles.css"
 
 import { Player, PlayerId } from "rune-sdk"
 
-import selectSoundAudio from "./assets/select.wav"
+// import selectSoundAudio from "./assets/select.wav"
 import { Cells } from "./logic.ts"
 
 const board = document.getElementById("board")!
@@ -10,7 +10,7 @@ const playersSection = document.getElementById("playersSection")!
 const gameBoardSVG = document.getElementById("game-board-svg")!
 // const buttonsContainer = document.getElementById("buttons-container")!
 
-const selectSound = new Audio(selectSoundAudio)
+// const selectSound = new Audio(selectSoundAudio)
 
 let cellImages: SVGImageElement[], playerContainers: HTMLLIElement[]
 
@@ -31,6 +31,7 @@ const RECT_COORDINATES = [
 const ELLIPSE_STROKE_WIDTH = (10).toString()
 const LINE_STROKE_WIDTH = (7).toString()
 const CELL_SIZE = (+ELLIPSE_STROKE_WIDTH * 4).toString()
+const STROKE_COLOR = "#e6e6e6"
 
 function initUI(
   cells: Cells[],
@@ -60,7 +61,7 @@ function initUI(
     rect.setAttribute("height", RECT_COORDINATES[i].height.toString())
     rect.setAttribute(
       "style",
-      `stroke: #e6e6e6; fill: rgba(0, 0, 0, 0); stroke-width: ${LINE_STROKE_WIDTH};`
+      `stroke: ${STROKE_COLOR}; fill: rgba(0, 0, 0, 0); stroke-width: ${LINE_STROKE_WIDTH};`
     )
     gameBoardSVG.appendChild(rect)
   }
@@ -74,7 +75,10 @@ function initUI(
     ellipse.setAttribute("cy", cells[index].y.toString())
     ellipse.setAttribute("rx", ELLIPSE_STROKE_WIDTH)
     ellipse.setAttribute("ry", ELLIPSE_STROKE_WIDTH)
-    ellipse.setAttribute("style", "stroke: #e6e6e6;")
+    ellipse.setAttribute(
+      "style",
+      `stroke: ${STROKE_COLOR}; stroke-width: ${+ELLIPSE_STROKE_WIDTH / 2};`
+    )
 
     // Create a svg image element which will then be used to set the image of avatar
     const image = document.createElementNS(
@@ -103,7 +107,7 @@ function initUI(
              player.displayName +
              (player.playerId === yourPlayerId ? "<br>(You)" : "")
            }</span></div>`
-    li.innerHTML += `<div class="remaining-mills"><span>xxx</span><span>xxx</span><span>xxx</span></div>`
+    li.innerHTML += `<div class="remaining-mills"></div>`
     // li.innerHTML += `<span>xxx</span>`
     // li.innerHTML += `<span>xxx</span></div>`
     // li.innerHTML += `<div><span>xxx</span></div>`
@@ -114,7 +118,8 @@ function initUI(
 }
 
 Rune.initClient({
-  onChange: ({ game, yourPlayerId, action }) => {
+  // onChange: ({ game, yourPlayerId, action }) => {
+  onChange: ({ game, yourPlayerId }) => {
     const { cells, playerIds, lastMovePlayerId } = game
 
     if (!cellImages) initUI(cells, playerIds, yourPlayerId)
@@ -147,23 +152,40 @@ Rune.initClient({
         cellImage.setAttribute("href", "")
       }
 
-      // Enable the rect button to avoid clicks for these conditions
+      // Disable the pointer events on the image
       /*
         1. If the last move player id is not your player id
         2. If the cell has a player id
       */
-      if (lastMovePlayerId === yourPlayerId || cells[index].playerId) {
-        cellImage.setAttribute("disable-click", "1")
+      // if (lastMovePlayerId === yourPlayerId || cells[index].playerId) {
+      //   cellImage.setAttribute("disable-click", "1")
+      // } else {
+      //   cellImage.setAttribute("disable-click", "0")
+      // }
+
+      // Disable all the other cells other than the clickable cells
+      if (game.clickableCells.includes(index)) {
+        // cellImage.setAttribute("disable-click", "0")
+        cellImage.setAttribute("clickable", "1")
       } else {
-        cellImage.setAttribute("disable-click", "0")
+        // cellImage.setAttribute("disable-click", "1")
+        cellImage.setAttribute("clickable", "0")
       }
 
       // If the cell needs to be removed, then set and attribute to remove the cell
-      if (lastMovePlayerId !== yourPlayerId && cells[index].toRemove) {
+      // if (cells[index].toRemove) {
+      if (game.removableCells.includes(index)) {
         cellImage.setAttribute("remove", "1")
-        cellImage.setAttribute("disable-click", "0")
       } else {
         cellImage.setAttribute("remove", "0")
+      }
+
+      // If the cell is part of the mill then it should be highlighted
+      // if (cells[index].isPartOfMill) {
+      if (game.highlightedCellsPartOfMill.includes(index)) {
+        cellImage.setAttribute("is-part-of-mill", "true")
+      } else {
+        cellImage.removeAttribute("is-part-of-mill")
       }
 
       // if (!cells[index].disableClick) {
@@ -176,10 +198,22 @@ Rune.initClient({
         "your-turn",
         String(playerIds[i] !== lastMovePlayerId)
       )
+
+      // Update the remaining mills
+      // const remainingMills = container.querySelector(".remaining-mills")!
+      // Get the count of the current player's cells
+      // for (let j = 0; j < game.cellPlacedCount; j += 2) {
+      //   remainingMills.innerHTML += `<img src=${playersInfo[playerIds[i]].avatarUrl} />`
+      // }
     })
 
+    gameBoardSVG.setAttribute(
+      "your-turn",
+      String(yourPlayerId !== lastMovePlayerId)
+    )
+
     // Play a sound after placing a cell
-    console.log("selectSound", selectSound, action)
+    // console.log("selectSound", selectSound, action)
     // if (action && action.name === "handleClick") selectSound.play()
   },
 })

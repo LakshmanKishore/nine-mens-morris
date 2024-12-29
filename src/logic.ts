@@ -21,11 +21,11 @@ export interface GameState {
   possibleMills: number[][]
   clickableCells: number[]
   removableCells: number[]
-  cellsPartOfMill: number[]
   highlightedCellsPartOfMill: number[]
   totalCellsToPlace: number
   selectedCellIndex: number
   neighborHighlightCells: number[]
+  occurredPossibleMillIndexes: number[]
 }
 
 type GameActions = {
@@ -230,11 +230,11 @@ Rune.initLogic({
       21, 22, 23, 24,
     ],
     removableCells: [],
-    cellsPartOfMill: [],
     highlightedCellsPartOfMill: [],
-    totalCellsToPlace: 4,
+    totalCellsToPlace: 17,
     selectedCellIndex: -1,
     neighborHighlightCells: [],
+    occurredPossibleMillIndexes: [],
   }),
   actions: {
     // handleClick: (cellIndex, { game, playerId, allPlayerIds }) => {
@@ -247,15 +247,9 @@ Rune.initLogic({
       if (game.removableCells.includes(cellIndex)) {
         // Set the player id to null
         game.cells[cellIndex].playerId = null
-        // Reset all the remove flags
-        // TODO: Make this to store recent removed cells and use that to access it here
-        // for (let i = 0; i < game.cells.length; i++) {
-        //   game.cells[i].toRemove = false
-        //   game.cells[i].disableClick = false
-        //   game.cells[i].isPartOfMill = false
-        // }
         // After removing the cell reset the clickable cells
         if (game.cellPlacedCount <= game.totalCellsToPlace) {
+          game.clickableCells = []
           // Reset the clickable cells to empty cells
           game.cells.forEach((cell, index) => {
             if (cell.playerId === null) {
@@ -265,7 +259,7 @@ Rune.initLogic({
         } else {
           // Set the clickable cells to the opponent cells when it's time to move
           game.cells.forEach((cell, index) => {
-            if (cell.playerId !== playerId) {
+            if (cell.playerId !== playerId && cell.playerId !== null) {
               game.clickableCells.push(index)
             }
           })
@@ -285,6 +279,7 @@ Rune.initLogic({
             game.cells[game.selectedCellIndex].playerId
           game.cells[game.selectedCellIndex].playerId = null
 
+          // Reset the clickable cells to remove the previous selected cell's neighbors
           game.clickableCells = game.clickableCells.filter(
             (index) => !game.neighborHighlightCells.includes(index)
           )
@@ -331,10 +326,22 @@ Rune.initLogic({
         game.cellPlacedCount += 1
       }
 
+      // For all occurred possible mills check if the mill exists still
+      game.occurredPossibleMillIndexes =
+        game.occurredPossibleMillIndexes.filter((index) => {
+          const mill = game.possibleMills[index]
+          return (
+            game.cells[mill[0]].playerId === game.cells[mill[1]].playerId &&
+            game.cells[mill[1]].playerId === game.cells[mill[2]].playerId &&
+            game.cells[mill[2]].playerId === game.cells[mill[0]].playerId
+          )
+        })
+
       let canTakeOpponentCell = false
 
       // Check if any mills has formed only on the cell where the player has clicked
-      for (const mill of game.possibleMills) {
+      for (let index = 0; index < game.possibleMills.length; index++) {
+        const mill = game.possibleMills[index]
         // If the cell is not part of the mill then continue
         if (!mill.includes(cellIndex)) {
           continue
@@ -345,15 +352,27 @@ Rune.initLogic({
           game.cells[mill[2]].playerId === playerId
         ) {
           // Add the mill to the cells part of mill
-          game.cellsPartOfMill.push(mill[0], mill[1], mill[2])
+          game.occurredPossibleMillIndexes.push(index)
           game.highlightedCellsPartOfMill.push(mill[0], mill[1], mill[2])
-          // game.cells[mill[0]].isPartOfMill = true
-          // game.cells[mill[1]].isPartOfMill = true
-          // game.cells[mill[2]].isPartOfMill = true
+
           // Make the opponent player's cells clickable and disable the click on all other cells
           game.cells.forEach((cell, index) => {
             if (cell.playerId !== playerId && cell.playerId) {
-              if (!game.cellsPartOfMill.includes(index)) {
+              // For each mills that has occurred check if the cell is part of the mill
+              let indexPresentInMill = false
+              for (
+                let i = 0;
+                i < game.occurredPossibleMillIndexes.length;
+                i++
+              ) {
+                const millIndexes =
+                  game.possibleMills[game.occurredPossibleMillIndexes[i]]
+                if (millIndexes.includes(index)) {
+                  indexPresentInMill = true
+                  break
+                }
+              }
+              if (!indexPresentInMill) {
                 game.removableCells.push(index)
                 canTakeOpponentCell = true
               }

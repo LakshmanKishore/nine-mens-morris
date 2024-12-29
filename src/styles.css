@@ -25,8 +25,8 @@ main {
 
 #board {
   position: relative;
-  width: 100vw;
-  max-width: min(100vw, 600px);
+  width: 98vw;
+  max-width: min(98vw, 600px);
   aspect-ratio: 1;
   width: 100%;
 }
@@ -92,6 +92,7 @@ image[player="1"] {
 
 image[clickable="1"] {
   cursor: pointer;
+  outline: calc(var(--ellipse-stroke-width)) solid yellow;
 }
 
 image[clickable="0"] {
@@ -107,6 +108,15 @@ image[remove="1"] {
 image[is-part-of-mill="true"] {
   /* Add outline to distinguish if both players has same avatar */
   outline: var(--ellipse-stroke-width) solid green;
+}
+
+image[selected="true"] {
+  outline: var(--ellipse-stroke-width) solid orange;
+}
+
+image[neighbor-highlight="true"] {
+  outline: var(--ellipse-stroke-width) solid orange;
+  opacity: 0.5;
 }
 
 /* image[clickable="1"] {

@@ -23,6 +23,9 @@ export interface GameState {
   removableCells: number[]
   cellsPartOfMill: number[]
   highlightedCellsPartOfMill: number[]
+  totalCellsToPlace: number
+  selectedCellIndex: number
+  neighborHighlightCells: number[]
 }
 
 type GameActions = {
@@ -229,6 +232,9 @@ Rune.initLogic({
     removableCells: [],
     cellsPartOfMill: [],
     highlightedCellsPartOfMill: [],
+    totalCellsToPlace: 4,
+    selectedCellIndex: -1,
+    neighborHighlightCells: [],
   }),
   actions: {
     // handleClick: (cellIndex, { game, playerId, allPlayerIds }) => {
@@ -236,16 +242,6 @@ Rune.initLogic({
       if (game.lastMovePlayerId === playerId) {
         return
       }
-
-      // Reset the clickable cells
-      game.clickableCells = []
-
-      // Update clickable cells with all the empty cells
-      game.cells.forEach((cell, index) => {
-        if (cell.playerId === null && cellIndex !== index) {
-          game.clickableCells.push(index)
-        }
-      })
 
       // If the cell needs to be removed then remove it
       if (game.removableCells.includes(cellIndex)) {
@@ -259,7 +255,7 @@ Rune.initLogic({
         //   game.cells[i].isPartOfMill = false
         // }
         // After removing the cell reset the clickable cells
-        if (game.cellPlacedCount <= 17) {
+        if (game.cellPlacedCount <= game.totalCellsToPlace) {
           // Reset the clickable cells to empty cells
           game.cells.forEach((cell, index) => {
             if (cell.playerId === null) {
@@ -281,10 +277,55 @@ Rune.initLogic({
         return
       }
 
+      // Logic to move the cells
+      if (game.cellPlacedCount > game.totalCellsToPlace) {
+        // First check if the clicked cell is present in neighbors highlight cell
+        if (game.neighborHighlightCells.includes(cellIndex)) {
+          game.cells[cellIndex].playerId =
+            game.cells[game.selectedCellIndex].playerId
+          game.cells[game.selectedCellIndex].playerId = null
+
+          game.clickableCells = game.clickableCells.filter(
+            (index) => !game.neighborHighlightCells.includes(index)
+          )
+          game.selectedCellIndex = -1
+          // reset neighbor highlight cells
+          game.neighborHighlightCells = []
+        }
+        // Check if the clicked cell is in clickable cells
+        if (game.clickableCells.includes(cellIndex)) {
+          game.selectedCellIndex = cellIndex
+          // If there is a new selected cells are present, then remove all the previous neighbor highlight cells from the clickable cells
+          game.clickableCells = game.clickableCells.filter(
+            (index) => !game.neighborHighlightCells.includes(index)
+          )
+
+          // Reset the neighbor highlight cells for the new selected cell
+          game.neighborHighlightCells = []
+          game.cells[cellIndex].reachableCellIndexes.forEach((index) => {
+            if (!game.cells[index].playerId) {
+              game.neighborHighlightCells.push(index)
+              game.clickableCells.push(index)
+            }
+          })
+          return
+        }
+      } else {
+        // Reset the clickable cells
+        game.clickableCells = []
+
+        // Update clickable cells with all the empty cells
+        game.cells.forEach((cell, index) => {
+          if (cell.playerId === null && cellIndex !== index) {
+            game.clickableCells.push(index)
+          }
+        })
+      }
+
       // Check if the player has clicked on an empty cells
       if (
         game.cells[cellIndex].playerId === null &&
-        game.cellPlacedCount <= 17
+        game.cellPlacedCount <= game.totalCellsToPlace
       ) {
         game.cells[cellIndex].playerId = playerId
         game.cellPlacedCount += 1
@@ -328,6 +369,16 @@ Rune.initLogic({
             game.highlightedCellsPartOfMill = []
           }
         }
+      }
+
+      // After placing all the 17 cells, the clickable Cells should be only the current player's cells
+      if (game.cellPlacedCount > game.totalCellsToPlace) {
+        game.clickableCells = []
+        game.cells.forEach((cell, index) => {
+          if (cell.playerId === game.lastMovePlayerId) {
+            game.clickableCells.push(index)
+          }
+        })
       }
 
       game.lastMovePlayerId = playerId

@@ -188,9 +188,24 @@ Rune.initClient({
         cellImage.removeAttribute("is-part-of-mill")
       }
 
-      // if (!cells[index].disableClick) {
-      //   cellImage.setAttribute("disable-click", "0")
-      // }
+      if (game.selectedCellIndex == index) {
+        cellImage.setAttribute("selected", "true")
+      } else {
+        cellImage.removeAttribute("selected")
+      }
+
+      if (game.neighborHighlightCells.includes(index)) {
+        const playerId = game.cells[game.selectedCellIndex].playerId
+        cellImage.setAttribute("neighbor-highlight", "true")
+        if (playerId) {
+          cellImage.setAttribute("href", playersInfo[playerId].avatarUrl)
+        }
+      } else {
+        cellImage.removeAttribute("neighbor-highlight")
+        if (!game.cells[index].playerId) {
+          cellImage.removeAttribute("href")
+        }
+      }
     })
 
     playerContainers.forEach((container, i) => {

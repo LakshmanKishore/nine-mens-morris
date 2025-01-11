@@ -6,6 +6,7 @@ export type Cells = {
   y: number
   playerId: PlayerId | null
   reachableCellIndexes: number[]
+  // hasEmptyNeighbor(): boolean
   // isPartOfMill: boolean
   // toRemove: boolean
   // disableClick: boolean
@@ -14,7 +15,7 @@ export type Cells = {
 export interface GameState {
   cells: Cells[]
   winCombo: number[] | null
-  lastMovePlayerId: PlayerId | null
+  lastMovePlayerId: PlayerId
   playerIds: PlayerId[]
   freeCells?: boolean
   cellPlacedCount: number
@@ -52,6 +53,19 @@ declare global {
 //     ) || null
 //   )
 // }
+
+function hasEmptyNeighbor(game: GameState, cellIndex: number) {
+  // Before making the cells clickable, check if the neighbor cells are empty
+  let anyNeighborEmpty: boolean = false
+
+  for (const neighborIndex of game.cells[cellIndex].reachableCellIndexes) {
+    if (game.cells[neighborIndex].playerId === null) {
+      anyNeighborEmpty = true
+      break
+    }
+  }
+  return anyNeighborEmpty
+}
 
 Rune.initLogic({
   minPlayers: 2,
@@ -260,14 +274,58 @@ Rune.initLogic({
           // Set the clickable cells to the opponent cells when it's time to move
           game.cells.forEach((cell, index) => {
             if (cell.playerId !== playerId && cell.playerId !== null) {
-              game.clickableCells.push(index)
+              if (hasEmptyNeighbor(game, index)) {
+                game.clickableCells.push(index)
+              }
             }
           })
+
+          // If there are no clickable cells then declare the winner
+          if (game.clickableCells.length === 0) {
+            // Since the other player has locked all the cells, so declare the winner
+            Rune.gameOver({
+              players: {
+                [game.lastMovePlayerId]: "LOST",
+                [playerId]: "WON",
+              },
+            })
+          }
         }
+
         game.removableCells = []
         game.highlightedCellsPartOfMill = []
         // Change the last move player id
         game.lastMovePlayerId = playerId
+
+        // Check if any player has won after placing all the cells
+        if (game.cellPlacedCount >= game.totalCellsToPlace) {
+          // If any player's cell's count is less than 3 then the opponent player has won.
+          const playerIdsWithCellsCount: { [playerId: PlayerId]: number } = {}
+
+          playerIdsWithCellsCount[game.playerIds[0]] = 0
+          playerIdsWithCellsCount[game.playerIds[1]] = 0
+
+          for (const playerId in game.cells) {
+            if (game.cells[playerId].playerId)
+              playerIdsWithCellsCount[game.cells[playerId].playerId] += 1
+          }
+
+          if (playerIdsWithCellsCount[game.playerIds[0]] < 3) {
+            Rune.gameOver({
+              players: {
+                [game.playerIds[0]]: "LOST",
+                [game.playerIds[1]]: "WON",
+              },
+            })
+          } else if (playerIdsWithCellsCount[game.playerIds[1]] < 3) {
+            Rune.gameOver({
+              players: {
+                [game.playerIds[0]]: "WON",
+                [game.playerIds[1]]: "LOST",
+              },
+            })
+          }
+        }
         return
       }
 
@@ -395,9 +453,22 @@ Rune.initLogic({
         game.clickableCells = []
         game.cells.forEach((cell, index) => {
           if (cell.playerId === game.lastMovePlayerId) {
-            game.clickableCells.push(index)
+            if (hasEmptyNeighbor(game, index)) {
+              game.clickableCells.push(index)
+            }
           }
         })
+
+        // If there are no clickable cells then change to the next player
+        if (game.clickableCells.length === 0) {
+          // Since the other player has locked all the cells, so declare the winner
+          Rune.gameOver({
+            players: {
+              [game.lastMovePlayerId]: "LOST",
+              [playerId]: "WON",
+            },
+          })
+        }
       }
 
       game.lastMovePlayerId = playerId

@@ -6,23 +6,25 @@
       name="viewport"
       content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1"
     />
-    <title>Tic Tac Toe</title>
+    <title>Nine Men's Morris</title>
   </head>
   <body>
     <main>
-      <ul id="playersSection"></ul>
-      <!-- <button style="height: 1.32vh; width: 1.32vh; border: 1.3vw solid black"></button>
-      <button style="height: 1.32vh; width: 1.32vh; border: 1.3vw solid black"></button>
-      <button style="height: 1.32vh; width: 1.32vh; border: 1.3vw solid black"></button>
-      <button style="height: 1.32vh; width: 1.32vh; border: 1.3vw solid black"></button>
-
-      <div style="background-color: red; height: 1.32vh; width: 1.32vh; border: 1.3vw solid black"></div>
-      <div style="background-color: red; height: 1.32vh; width: 1.32vh; border: 1.3vw solid black"></div>
-      <div style="background-color: red; height: 1.32vh; width: 1.32vh; border: 1.3vw solid black"></div>
-      <div style="background-color: red; height: 1.32vh; width: 1.32vh; border: 1.3vw solid black"></div> -->
-      <div id="board" class="initial">
-        <svg xmlns="http://www.w3.org/2000/svg" id="game-board-svg" viewbox="-50 -50 700 700">
-        </svg>
+      <h2 align="center">Nine Men's Morris</h2>
+      <div id="selection-screen" align="center">
+        <h4>Choose your play type</h4>
+        <ul id="display-players"></ul>
+        <div id="play-type">
+          <button id="play-two-player" disabled>Play with another player</button>
+          <button id="play-bot">Play with bot</button>
+        </div>
+      </div>
+      <div id="game-container" hide="true">
+        <ul id="players-section"></ul>
+        <div id="board" class="initial">
+          <svg xmlns="http://www.w3.org/2000/svg" id="game-board-svg" viewbox="-50 -50 700 700">
+          </svg>
+        </div>
       </div>
     </main>
     <script type="module" src="/src/logic.ts"></script>

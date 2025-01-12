@@ -6,8 +6,13 @@ import { Player, PlayerId } from "rune-sdk"
 import { Cells } from "./logic.ts"
 
 const board = document.getElementById("board")!
-const playersSection = document.getElementById("playersSection")!
+const playersSection = document.getElementById("players-section")!
 const gameBoardSVG = document.getElementById("game-board-svg")!
+const selectionScreen = document.getElementById("selection-screen")!
+const gameContainer = document.getElementById("game-container")!
+const displayPlayers = document.getElementById("display-players")!
+const playTwoPlayerButton = document.getElementById("play-two-player")!
+const playBotButton = document.getElementById("play-bot")!
 // const buttonsContainer = document.getElementById("buttons-container")!
 
 // const selectSound = new Audio(selectSoundAudio)
@@ -90,7 +95,11 @@ function initUI(
     image.setAttribute("y", (cells[index].y - +CELL_SIZE).toString())
     image.setAttribute("width", (+CELL_SIZE * 2).toString())
     image.setAttribute("height", (+CELL_SIZE * 2).toString())
-    image.addEventListener("click", () => Rune.actions.handleClick(index))
+    // New player joined when first player playing with the bot should not have event listener
+    // So add actions only for the player that are in player list
+    if (yourPlayerId && playerIds.includes(yourPlayerId)) {
+      image.addEventListener("click", () => Rune.actions.handleClick(index))
+    }
 
     gameBoardSVG.appendChild(ellipse)
     gameBoardSVG.appendChild(image)
@@ -121,6 +130,49 @@ Rune.initClient({
   // onChange: ({ game, yourPlayerId, action }) => {
   onChange: ({ game, yourPlayerId }) => {
     const { cells, playerIds, lastMovePlayerId } = game
+
+    // First show the main page to select the play type
+    if (!game.playTypeSelected) {
+      if (game.playerIds.length === 2) {
+        playTwoPlayerButton.removeAttribute("disabled")
+        playBotButton.setAttribute("disabled", "")
+      }
+
+      displayPlayers.innerHTML = ""
+      // Display the first 2 player id's avatar in the board with names to show that they are playing.
+      for (let index = 0; index < game.playerIds.length; index++) {
+        const player = Rune.getPlayerInfo(playerIds[index])
+        const li = document.createElement("li")
+
+        li.setAttribute("player", index.toString())
+        li.innerHTML = `<div class="player-info"><img src="${player.avatarUrl}" />
+              <span>${
+                player.displayName +
+                (player.playerId === yourPlayerId ? "<br>(You)" : "")
+              }</span></div>`
+
+        displayPlayers.appendChild(li)
+        if (game.playerIds.length > 1 && index === 0) {
+          const vs = document.createElement("li")
+          vs.innerHTML = "<span>VS</span>"
+          displayPlayers.appendChild(vs)
+        }
+      }
+
+      // Add event listener to the buttons to start the game.
+      playTwoPlayerButton.addEventListener("click", () => {
+        Rune.actions.setPlayType("two-player")
+      })
+      playBotButton.addEventListener("click", () => {
+        Rune.actions.setPlayType("bot")
+      })
+
+      return
+    }
+
+    // After the selection has happened set the selection screen to hidden
+    selectionScreen.setAttribute("hide", "true")
+    gameContainer.removeAttribute("hide")
 
     if (!cellImages) initUI(cells, playerIds, yourPlayerId)
 

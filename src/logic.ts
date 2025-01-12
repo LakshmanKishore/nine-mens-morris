@@ -14,23 +14,27 @@ export type Cells = {
 
 export interface GameState {
   cells: Cells[]
-  winCombo: number[] | null
-  lastMovePlayerId: PlayerId
-  playerIds: PlayerId[]
-  freeCells?: boolean
   cellPlacedCount: number
-  possibleMills: number[][]
   clickableCells: number[]
-  removableCells: number[]
+  freeCells?: boolean
   highlightedCellsPartOfMill: number[]
-  totalCellsToPlace: number
-  selectedCellIndex: number
+  lastMovePlayerId: PlayerId
   neighborHighlightCells: number[]
   occurredPossibleMillIndexes: number[]
+  playTypeSelected: boolean
+  playerIds: PlayerId[]
+  playingWithBot: boolean
+  possibleMills: number[][]
+  removableCells: number[]
+  selectedCellIndex: number
+  totalCellsToPlace: number
+  winCombo: number[] | null
+  otherPlayerId: PlayerId | null
 }
 
 type GameActions = {
   handleClick: (cellIndex: number) => void
+  setPlayType: (playType: "bot" | "two-player") => void
 }
 
 declare global {
@@ -68,7 +72,7 @@ function hasEmptyNeighbor(game: GameState, cellIndex: number) {
 }
 
 Rune.initLogic({
-  minPlayers: 2,
+  minPlayers: 1,
   maxPlayers: 2,
   setup: (allPlayerIds) => ({
     cells: [
@@ -249,11 +253,17 @@ Rune.initLogic({
     selectedCellIndex: -1,
     neighborHighlightCells: [],
     occurredPossibleMillIndexes: [],
+    playingWithBot: false,
+    playTypeSelected: false,
+    otherPlayerId: null,
   }),
   actions: {
     // handleClick: (cellIndex, { game, playerId, allPlayerIds }) => {
     handleClick: (cellIndex, { game, playerId }) => {
-      if (game.lastMovePlayerId === playerId) {
+      if (
+        game.lastMovePlayerId === playerId ||
+        !game.playerIds.includes(playerId)
+      ) {
         return
       }
 
@@ -472,6 +482,36 @@ Rune.initLogic({
       }
 
       game.lastMovePlayerId = playerId
+    },
+    setPlayType: (playType, { game }) => {
+      game.playingWithBot = playType === "bot"
+      game.playTypeSelected = true
+    },
+  },
+  events: {
+    playerJoined: (playerId, { game }) => {
+      // Check if the game has already started
+      if (game.playTypeSelected) {
+        game.otherPlayerId = playerId
+        return
+      }
+      // Else display the new player's avatar in the board.
+      game.playerIds.push(playerId)
+    },
+    playerLeft: (playerId, { game }) => {
+      // If the player who left is playing with the bot leaves, then the game should restart.
+      if (game.playerIds.includes(playerId)) {
+        game.playerIds = game.playerIds.filter((id) => id !== playerId)
+        // Rune.showGameOverPopUp()
+        // if (game.otherPlayerId) {
+        //   game.playerIds = [game.otherPlayerId]
+        // }
+      }
+      // Check if the player is playing with the bot
+      if (game.playingWithBot) {
+        // If the player is playing with the bot, then the other player leaving should not end the game
+        return
+      }
     },
   },
 })

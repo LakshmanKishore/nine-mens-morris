@@ -11,19 +11,28 @@
   <body>
     <main>
       <h2 align="center">Nine Men's Morris</h2>
-      <div id="selection-screen" align="center">
-        <h4>Choose your play type</h4>
-        <ul id="display-players"></ul>
-        <div id="play-type">
-          <button id="play-two-player" disabled>Play with another player</button>
-          <button id="play-bot">Play with bot</button>
-        </div>
-      </div>
-      <div id="game-container" hide="true">
+      <div id="game-container">
         <ul id="players-section"></ul>
         <div id="board" class="initial">
           <svg xmlns="http://www.w3.org/2000/svg" id="game-board-svg" viewbox="-50 -50 700 700">
           </svg>
+        </div>
+      </div>
+      <div class="buttons">
+        <div id="settings"></div>
+        <div id="question-mark"></div>
+      </div>
+      <!-- The Modal -->
+      <div id="myModal" class="modal">
+        <!-- Modal content -->
+        <div class="modal-content">
+          <span class="close">&times;</span>
+          <div id="modal-settings">
+            <!-- TODO: Implement the bot difficulty selection -->
+          </div>
+          <div id="modal-question-mark">
+            <!-- TODO: Add some sample screen shots of the game with multiple stages -->
+          </div>
         </div>
       </div>
     </main>

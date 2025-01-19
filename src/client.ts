@@ -8,12 +8,11 @@ import { Cells } from "./logic.ts"
 const board = document.getElementById("board")!
 const playersSection = document.getElementById("players-section")!
 const gameBoardSVG = document.getElementById("game-board-svg")!
-const selectionScreen = document.getElementById("selection-screen")!
-const gameContainer = document.getElementById("game-container")!
-const displayPlayers = document.getElementById("display-players")!
-const playTwoPlayerButton = document.getElementById("play-two-player")!
-const playBotButton = document.getElementById("play-bot")!
-// const buttonsContainer = document.getElementById("buttons-container")!
+const modal = document.getElementById("myModal")!
+// Get the button that opens the modal
+const settings = document.getElementById("settings")!
+// Get the <span> element that closes the modal
+const span = document.getElementsByClassName("close")[0]!
 
 // const selectSound = new Audio(selectSoundAudio)
 
@@ -98,7 +97,14 @@ function initUI(
     // New player joined when first player playing with the bot should not have event listener
     // So add actions only for the player that are in player list
     if (yourPlayerId && playerIds.includes(yourPlayerId)) {
-      image.addEventListener("click", () => Rune.actions.handleClick(index))
+      image.addEventListener("click", () => {
+        const fromBot = image.getAttribute("from-bot")
+        Rune.actions.handleClick({
+          cellIndex: index,
+          fromBot:
+            fromBot === null ? false : fromBot === "false" ? false : true,
+        })
+      })
     }
 
     gameBoardSVG.appendChild(ellipse)
@@ -106,16 +112,38 @@ function initUI(
     return image
   })
 
+  // When the user clicks on the button, open the modal
+  settings.addEventListener("click", () => {
+    modal.style.display = "block"
+  })
+
+  // When the user clicks on <span> (x), close the modal
+  span.addEventListener("click", () => {
+    modal.style.display = "none"
+  })
+
+  // When the user clicks anywhere outside of the modal, close it
+  window.addEventListener("click", (event) => {
+    if (event.target == modal) {
+      modal.style.display = "none"
+    }
+  })
+
   playerContainers = playerIds.map((playerId, index) => {
     const player = Rune.getPlayerInfo(playerId)
 
     const li = document.createElement("li")
     li.setAttribute("player", index.toString())
-    li.innerHTML = `<div class="player-info"><img src="${player.avatarUrl}" />
+    if (playerId === "bot") {
+      li.innerHTML = `<div class="player-info"><img id="bot-image" />
+           <span>Bot</span></div>`
+    } else {
+      li.innerHTML = `<div class="player-info"><img src="${player.avatarUrl}" />
            <span>${
              player.displayName +
              (player.playerId === yourPlayerId ? "<br>(You)" : "")
            }</span></div>`
+    }
     li.innerHTML += `<div class="remaining-mills"></div>`
     // li.innerHTML += `<span>xxx</span>`
     // li.innerHTML += `<span>xxx</span></div>`
@@ -124,55 +152,25 @@ function initUI(
 
     return li
   })
+
+  // if (playerIds.length === 1) {
+  //   const li = document.createElement("li")
+  //   li.setAttribute("player", "bot")
+  //   li.innerHTML = `<div class="player-info"><img id="bot-image" />
+  //          <span>Bot</span></div>`
+  //   li.innerHTML += `<div class="remaining-mills"></div>`
+  //   // li.innerHTML += `<span>xxx</span>`
+  //   // li.innerHTML += `<span>xxx</span></div>`
+  //   // li.innerHTML += `<div><span>xxx</span></div>`
+  //   playersSection.appendChild(li)
+  //   playerContainers.push(li)
+  // }
 }
 
 Rune.initClient({
   // onChange: ({ game, yourPlayerId, action }) => {
   onChange: ({ game, yourPlayerId }) => {
     const { cells, playerIds, lastMovePlayerId } = game
-
-    // First show the main page to select the play type
-    if (!game.playTypeSelected) {
-      if (game.playerIds.length === 2) {
-        playTwoPlayerButton.removeAttribute("disabled")
-        playBotButton.setAttribute("disabled", "")
-      }
-
-      displayPlayers.innerHTML = ""
-      // Display the first 2 player id's avatar in the board with names to show that they are playing.
-      for (let index = 0; index < game.playerIds.length; index++) {
-        const player = Rune.getPlayerInfo(playerIds[index])
-        const li = document.createElement("li")
-
-        li.setAttribute("player", index.toString())
-        li.innerHTML = `<div class="player-info"><img src="${player.avatarUrl}" />
-              <span>${
-                player.displayName +
-                (player.playerId === yourPlayerId ? "<br>(You)" : "")
-              }</span></div>`
-
-        displayPlayers.appendChild(li)
-        if (game.playerIds.length > 1 && index === 0) {
-          const vs = document.createElement("li")
-          vs.innerHTML = "<span>VS</span>"
-          displayPlayers.appendChild(vs)
-        }
-      }
-
-      // Add event listener to the buttons to start the game.
-      playTwoPlayerButton.addEventListener("click", () => {
-        Rune.actions.setPlayType("two-player")
-      })
-      playBotButton.addEventListener("click", () => {
-        Rune.actions.setPlayType("bot")
-      })
-
-      return
-    }
-
-    // After the selection has happened set the selection screen to hidden
-    selectionScreen.setAttribute("hide", "true")
-    gameContainer.removeAttribute("hide")
 
     if (!cellImages) initUI(cells, playerIds, yourPlayerId)
 
@@ -182,12 +180,20 @@ Rune.initClient({
     // Get all the player ids information
     const playersInfo = playerIds.reduce(
       (acc, playerId) => {
-        const info = Rune.getPlayerInfo(playerId)
+        const info: Player = Rune.getPlayerInfo(playerId)
         acc[playerId] = info
         return acc
       },
       {} as { [playerId: string]: Player }
     )
+
+    const botPlayerInfo: Player = {
+      displayName: "Bot",
+      avatarUrl: "/src/assets/robot.png",
+      playerId: "bot",
+    }
+
+    playersInfo["bot"] = botPlayerInfo
 
     cellImages.forEach((cellImage, index) => {
       const cellValue: PlayerId | null = cells[index].playerId
@@ -278,6 +284,42 @@ Rune.initClient({
       "your-turn",
       String(yourPlayerId !== lastMovePlayerId)
     )
+
+    // Bot click handler
+    if (game.playingWithBot) {
+      if (lastMovePlayerId === yourPlayerId) {
+        // It's bots turn, randomly click on a clickable cell.
+        let randomIndex = Math.floor(Math.random() * game.clickableCells.length)
+        let index = game.clickableCells[randomIndex]
+        setTimeout(() => {
+          // when next action is to move, then first click should be any random, but the second click should be of neighbor clickable cell.
+          if (game.nextAction === "selectToMove") {
+            randomIndex = Math.floor(
+              Math.random() * game.neighborHighlightCells.length
+            )
+            index = game.neighborHighlightCells[randomIndex]
+          }
+          // Add the fromBot attribute to the image element of the index.
+          cellImages[index].setAttribute("from-bot", "true")
+          // Remove the pointer event style for the image.
+          cellImages[index].style.pointerEvents = "all"
+          // Perform the click
+          cellImages[index].dispatchEvent(
+            new MouseEvent("click", { bubbles: true })
+          )
+          cellImages[index].removeAttribute("from-bot")
+          cellImages[index].style.pointerEvents = "none"
+        }, 1000)
+        // if (game.botClickCanBeInitiated) {
+        //   setTimeout(() => {
+        //     Rune.actions.handleClick({
+        //       cellIndex: index,
+        //       fromBot: true,
+        //     })
+        //   }, 2000)
+        // }
+      }
+    }
 
     // Play a sound after placing a cell
     // console.log("selectSound", selectSound, action)

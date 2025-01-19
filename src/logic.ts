@@ -21,7 +21,6 @@ export interface GameState {
   lastMovePlayerId: PlayerId
   neighborHighlightCells: number[]
   occurredPossibleMillIndexes: number[]
-  playTypeSelected: boolean
   playerIds: PlayerId[]
   playingWithBot: boolean
   possibleMills: number[][]
@@ -30,11 +29,15 @@ export interface GameState {
   totalCellsToPlace: number
   winCombo: number[] | null
   otherPlayerId: PlayerId | null
+  nextAction:
+    | "selectToPlace"
+    | "selectToMove"
+    | "selectDestination"
+    | "selectToRemove"
 }
 
 type GameActions = {
-  handleClick: (cellIndex: number) => void
-  setPlayType: (playType: "bot" | "two-player") => void
+  handleClick: (params: { cellIndex: number; fromBot: boolean }) => void
 }
 
 declare global {
@@ -69,6 +72,229 @@ function hasEmptyNeighbor(game: GameState, cellIndex: number) {
     }
   }
   return anyNeighborEmpty
+}
+
+function handleClick(game: GameState, playerId: PlayerId, cellIndex: number) {
+  // If the cell needs to be removed then remove it
+  if (game.removableCells.includes(cellIndex)) {
+    // Set the player id to null
+    game.cells[cellIndex].playerId = null
+    // After removing the cell reset the clickable cells
+    if (game.cellPlacedCount <= game.totalCellsToPlace) {
+      game.clickableCells = []
+      // Reset the clickable cells to empty cells
+      game.cells.forEach((cell, index) => {
+        if (cell.playerId === null) {
+          game.clickableCells.push(index)
+        }
+      })
+      game.nextAction = "selectToPlace"
+    } else {
+      // Set the clickable cells to the opponent cells when it's time to move
+      game.cells.forEach((cell, index) => {
+        if (cell.playerId !== playerId && cell.playerId !== null) {
+          if (hasEmptyNeighbor(game, index)) {
+            game.clickableCells.push(index)
+          }
+        }
+      })
+
+      game.nextAction = "selectToMove"
+
+      // If there are no clickable cells then declare the winner
+      if (game.clickableCells.length === 0) {
+        // Since the other player has locked all the cells, so declare the winner
+        Rune.gameOver({
+          players: {
+            [game.lastMovePlayerId]: "LOST",
+            [playerId]: "WON",
+          },
+        })
+      }
+    }
+
+    game.removableCells = []
+    game.highlightedCellsPartOfMill = []
+    // Change the last move player id
+    game.lastMovePlayerId = playerId
+
+    // Check if any player has won after placing all the cells
+    if (game.cellPlacedCount >= game.totalCellsToPlace) {
+      // If any player's cell's count is less than 3 then the opponent player has won.
+      const playerIdsWithCellsCount: { [playerId: PlayerId]: number } = {}
+
+      playerIdsWithCellsCount[game.playerIds[0]] = 0
+      playerIdsWithCellsCount[game.playerIds[1]] = 0
+
+      for (const playerId in game.cells) {
+        if (game.cells[playerId].playerId)
+          playerIdsWithCellsCount[game.cells[playerId].playerId] += 1
+      }
+
+      if (playerIdsWithCellsCount[game.playerIds[0]] < 3) {
+        Rune.gameOver({
+          players: {
+            [game.playerIds[0]]: "LOST",
+            [game.playerIds[1]]: "WON",
+          },
+        })
+      } else if (playerIdsWithCellsCount[game.playerIds[1]] < 3) {
+        Rune.gameOver({
+          players: {
+            [game.playerIds[0]]: "WON",
+            [game.playerIds[1]]: "LOST",
+          },
+        })
+      }
+    }
+    return
+  }
+
+  // Logic to move the cells
+  if (game.cellPlacedCount > game.totalCellsToPlace) {
+    // First check if the clicked cell is present in neighbors highlight cell
+    if (game.neighborHighlightCells.includes(cellIndex)) {
+      game.cells[cellIndex].playerId =
+        game.cells[game.selectedCellIndex].playerId
+      game.cells[game.selectedCellIndex].playerId = null
+
+      // Reset the clickable cells to remove the previous selected cell's neighbors
+      game.clickableCells = game.clickableCells.filter(
+        (index) => !game.neighborHighlightCells.includes(index)
+      )
+      game.selectedCellIndex = -1
+      // reset neighbor highlight cells
+      game.neighborHighlightCells = []
+    }
+    // Check if the clicked cell is in clickable cells
+    if (game.clickableCells.includes(cellIndex)) {
+      game.selectedCellIndex = cellIndex
+      // If there is a new selected cells are present, then remove all the previous neighbor highlight cells from the clickable cells
+      game.clickableCells = game.clickableCells.filter(
+        (index) => !game.neighborHighlightCells.includes(index)
+      )
+
+      // Reset the neighbor highlight cells for the new selected cell
+      game.neighborHighlightCells = []
+      game.cells[cellIndex].reachableCellIndexes.forEach((index) => {
+        if (!game.cells[index].playerId) {
+          game.neighborHighlightCells.push(index)
+          game.clickableCells.push(index)
+        }
+      })
+      game.nextAction = "selectDestination"
+      return
+    }
+  } else {
+    // Reset the clickable cells
+    game.clickableCells = []
+
+    // Update clickable cells with all the empty cells
+    game.cells.forEach((cell, index) => {
+      if (cell.playerId === null && cellIndex !== index) {
+        game.clickableCells.push(index)
+      }
+    })
+
+    game.nextAction = "selectToPlace"
+  }
+
+  // Check if the player has clicked on an empty cells
+  if (
+    game.cells[cellIndex].playerId === null &&
+    game.cellPlacedCount <= game.totalCellsToPlace
+  ) {
+    game.cells[cellIndex].playerId = playerId
+    game.cellPlacedCount += 1
+  }
+
+  // For all occurred possible mills check if the mill exists still
+  game.occurredPossibleMillIndexes = game.occurredPossibleMillIndexes.filter(
+    (index) => {
+      const mill = game.possibleMills[index]
+      return (
+        game.cells[mill[0]].playerId === game.cells[mill[1]].playerId &&
+        game.cells[mill[1]].playerId === game.cells[mill[2]].playerId &&
+        game.cells[mill[2]].playerId === game.cells[mill[0]].playerId
+      )
+    }
+  )
+
+  let canTakeOpponentCell = false
+
+  // Check if any mills has formed only on the cell where the player has clicked
+  for (let index = 0; index < game.possibleMills.length; index++) {
+    const mill = game.possibleMills[index]
+    // If the cell is not part of the mill then continue
+    if (!mill.includes(cellIndex)) {
+      continue
+    }
+    if (
+      game.cells[mill[0]].playerId === playerId &&
+      game.cells[mill[1]].playerId === playerId &&
+      game.cells[mill[2]].playerId === playerId
+    ) {
+      // Add the mill to the cells part of mill
+      game.occurredPossibleMillIndexes.push(index)
+      game.highlightedCellsPartOfMill.push(mill[0], mill[1], mill[2])
+
+      // Make the opponent player's cells clickable and disable the click on all other cells
+      game.cells.forEach((cell, index) => {
+        if (cell.playerId !== playerId && cell.playerId) {
+          // For each mills that has occurred check if the cell is part of the mill
+          let indexPresentInMill = false
+          for (let i = 0; i < game.occurredPossibleMillIndexes.length; i++) {
+            const millIndexes =
+              game.possibleMills[game.occurredPossibleMillIndexes[i]]
+            if (millIndexes.includes(index)) {
+              indexPresentInMill = true
+              break
+            }
+          }
+          if (!indexPresentInMill) {
+            game.removableCells.push(index)
+            canTakeOpponentCell = true
+          }
+        }
+      })
+      // Return only if the player can take the opponent's cell else the player's turn will change
+      if (canTakeOpponentCell) {
+        // Set the clickable cells to removable cells
+        game.clickableCells = game.removableCells
+        game.nextAction = "selectToRemove"
+        return
+      } else {
+        // Reset the highlighted cells part of mill if there are no cells to take
+        game.highlightedCellsPartOfMill = []
+      }
+    }
+  }
+
+  // After placing all the 17 cells, the clickable Cells should be only the current player's cells
+  if (game.cellPlacedCount > game.totalCellsToPlace) {
+    game.clickableCells = []
+    game.cells.forEach((cell, index) => {
+      if (cell.playerId === game.lastMovePlayerId) {
+        if (hasEmptyNeighbor(game, index)) {
+          game.clickableCells.push(index)
+        }
+      }
+    })
+
+    // If there are no clickable cells then change to the next player
+    if (game.clickableCells.length === 0) {
+      // Since the other player has locked all the cells, so declare the winner
+      Rune.gameOver({
+        players: {
+          [game.lastMovePlayerId]: "LOST",
+          [playerId]: "WON",
+        },
+      })
+    }
+  }
+
+  // game.nextAction = "selectToMove"
+  game.lastMovePlayerId = playerId
 }
 
 Rune.initLogic({
@@ -223,7 +449,8 @@ Rune.initLogic({
     ],
     winCombo: null,
     lastMovePlayerId: allPlayerIds[1],
-    playerIds: allPlayerIds,
+    playerIds:
+      allPlayerIds.length === 1 ? [...allPlayerIds, "bot"] : allPlayerIds,
     cellPlacedCount: 0,
     possibleMills: [
       [0, 1, 2],
@@ -253,13 +480,21 @@ Rune.initLogic({
     selectedCellIndex: -1,
     neighborHighlightCells: [],
     occurredPossibleMillIndexes: [],
-    playingWithBot: false,
-    playTypeSelected: false,
+    playingWithBot: allPlayerIds.length === 1,
     otherPlayerId: null,
+    nextAction: "selectToPlace",
   }),
   actions: {
     // handleClick: (cellIndex, { game, playerId, allPlayerIds }) => {
-    handleClick: (cellIndex, { game, playerId }) => {
+    handleClick: (
+      params: { cellIndex: number; fromBot: boolean },
+      { game, playerId }
+    ) => {
+      const cellIndex = params.cellIndex
+      const fromBot = params.fromBot
+
+      playerId = fromBot ? "bot" : playerId
+
       if (
         game.lastMovePlayerId === playerId ||
         !game.playerIds.includes(playerId)
@@ -267,251 +502,38 @@ Rune.initLogic({
         return
       }
 
-      // If the cell needs to be removed then remove it
-      if (game.removableCells.includes(cellIndex)) {
-        // Set the player id to null
-        game.cells[cellIndex].playerId = null
-        // After removing the cell reset the clickable cells
-        if (game.cellPlacedCount <= game.totalCellsToPlace) {
-          game.clickableCells = []
-          // Reset the clickable cells to empty cells
-          game.cells.forEach((cell, index) => {
-            if (cell.playerId === null) {
-              game.clickableCells.push(index)
-            }
-          })
-        } else {
-          // Set the clickable cells to the opponent cells when it's time to move
-          game.cells.forEach((cell, index) => {
-            if (cell.playerId !== playerId && cell.playerId !== null) {
-              if (hasEmptyNeighbor(game, index)) {
-                game.clickableCells.push(index)
-              }
-            }
-          })
-
-          // If there are no clickable cells then declare the winner
-          if (game.clickableCells.length === 0) {
-            // Since the other player has locked all the cells, so declare the winner
-            Rune.gameOver({
-              players: {
-                [game.lastMovePlayerId]: "LOST",
-                [playerId]: "WON",
-              },
-            })
-          }
-        }
-
-        game.removableCells = []
-        game.highlightedCellsPartOfMill = []
-        // Change the last move player id
-        game.lastMovePlayerId = playerId
-
-        // Check if any player has won after placing all the cells
-        if (game.cellPlacedCount >= game.totalCellsToPlace) {
-          // If any player's cell's count is less than 3 then the opponent player has won.
-          const playerIdsWithCellsCount: { [playerId: PlayerId]: number } = {}
-
-          playerIdsWithCellsCount[game.playerIds[0]] = 0
-          playerIdsWithCellsCount[game.playerIds[1]] = 0
-
-          for (const playerId in game.cells) {
-            if (game.cells[playerId].playerId)
-              playerIdsWithCellsCount[game.cells[playerId].playerId] += 1
-          }
-
-          if (playerIdsWithCellsCount[game.playerIds[0]] < 3) {
-            Rune.gameOver({
-              players: {
-                [game.playerIds[0]]: "LOST",
-                [game.playerIds[1]]: "WON",
-              },
-            })
-          } else if (playerIdsWithCellsCount[game.playerIds[1]] < 3) {
-            Rune.gameOver({
-              players: {
-                [game.playerIds[0]]: "WON",
-                [game.playerIds[1]]: "LOST",
-              },
-            })
-          }
-        }
-        return
-      }
-
-      // Logic to move the cells
-      if (game.cellPlacedCount > game.totalCellsToPlace) {
-        // First check if the clicked cell is present in neighbors highlight cell
-        if (game.neighborHighlightCells.includes(cellIndex)) {
-          game.cells[cellIndex].playerId =
-            game.cells[game.selectedCellIndex].playerId
-          game.cells[game.selectedCellIndex].playerId = null
-
-          // Reset the clickable cells to remove the previous selected cell's neighbors
-          game.clickableCells = game.clickableCells.filter(
-            (index) => !game.neighborHighlightCells.includes(index)
-          )
-          game.selectedCellIndex = -1
-          // reset neighbor highlight cells
-          game.neighborHighlightCells = []
-        }
-        // Check if the clicked cell is in clickable cells
-        if (game.clickableCells.includes(cellIndex)) {
-          game.selectedCellIndex = cellIndex
-          // If there is a new selected cells are present, then remove all the previous neighbor highlight cells from the clickable cells
-          game.clickableCells = game.clickableCells.filter(
-            (index) => !game.neighborHighlightCells.includes(index)
-          )
-
-          // Reset the neighbor highlight cells for the new selected cell
-          game.neighborHighlightCells = []
-          game.cells[cellIndex].reachableCellIndexes.forEach((index) => {
-            if (!game.cells[index].playerId) {
-              game.neighborHighlightCells.push(index)
-              game.clickableCells.push(index)
-            }
-          })
-          return
-        }
-      } else {
-        // Reset the clickable cells
-        game.clickableCells = []
-
-        // Update clickable cells with all the empty cells
-        game.cells.forEach((cell, index) => {
-          if (cell.playerId === null && cellIndex !== index) {
-            game.clickableCells.push(index)
-          }
-        })
-      }
-
-      // Check if the player has clicked on an empty cells
-      if (
-        game.cells[cellIndex].playerId === null &&
-        game.cellPlacedCount <= game.totalCellsToPlace
-      ) {
-        game.cells[cellIndex].playerId = playerId
-        game.cellPlacedCount += 1
-      }
-
-      // For all occurred possible mills check if the mill exists still
-      game.occurredPossibleMillIndexes =
-        game.occurredPossibleMillIndexes.filter((index) => {
-          const mill = game.possibleMills[index]
-          return (
-            game.cells[mill[0]].playerId === game.cells[mill[1]].playerId &&
-            game.cells[mill[1]].playerId === game.cells[mill[2]].playerId &&
-            game.cells[mill[2]].playerId === game.cells[mill[0]].playerId
-          )
-        })
-
-      let canTakeOpponentCell = false
-
-      // Check if any mills has formed only on the cell where the player has clicked
-      for (let index = 0; index < game.possibleMills.length; index++) {
-        const mill = game.possibleMills[index]
-        // If the cell is not part of the mill then continue
-        if (!mill.includes(cellIndex)) {
-          continue
-        }
-        if (
-          game.cells[mill[0]].playerId === playerId &&
-          game.cells[mill[1]].playerId === playerId &&
-          game.cells[mill[2]].playerId === playerId
-        ) {
-          // Add the mill to the cells part of mill
-          game.occurredPossibleMillIndexes.push(index)
-          game.highlightedCellsPartOfMill.push(mill[0], mill[1], mill[2])
-
-          // Make the opponent player's cells clickable and disable the click on all other cells
-          game.cells.forEach((cell, index) => {
-            if (cell.playerId !== playerId && cell.playerId) {
-              // For each mills that has occurred check if the cell is part of the mill
-              let indexPresentInMill = false
-              for (
-                let i = 0;
-                i < game.occurredPossibleMillIndexes.length;
-                i++
-              ) {
-                const millIndexes =
-                  game.possibleMills[game.occurredPossibleMillIndexes[i]]
-                if (millIndexes.includes(index)) {
-                  indexPresentInMill = true
-                  break
-                }
-              }
-              if (!indexPresentInMill) {
-                game.removableCells.push(index)
-                canTakeOpponentCell = true
-              }
-            }
-          })
-          // Return only if the player can take the opponent's cell else the player's turn will change
-          if (canTakeOpponentCell) {
-            // Set the clickable cells to removable cells
-            game.clickableCells = game.removableCells
-            return
-          } else {
-            // Reset the highlighted cells part of mill if there are no cells to take
-            game.highlightedCellsPartOfMill = []
-          }
-        }
-      }
-
-      // After placing all the 17 cells, the clickable Cells should be only the current player's cells
-      if (game.cellPlacedCount > game.totalCellsToPlace) {
-        game.clickableCells = []
-        game.cells.forEach((cell, index) => {
-          if (cell.playerId === game.lastMovePlayerId) {
-            if (hasEmptyNeighbor(game, index)) {
-              game.clickableCells.push(index)
-            }
-          }
-        })
-
-        // If there are no clickable cells then change to the next player
-        if (game.clickableCells.length === 0) {
-          // Since the other player has locked all the cells, so declare the winner
-          Rune.gameOver({
-            players: {
-              [game.lastMovePlayerId]: "LOST",
-              [playerId]: "WON",
-            },
-          })
-        }
-      }
-
-      game.lastMovePlayerId = playerId
-    },
-    setPlayType: (playType, { game }) => {
-      game.playingWithBot = playType === "bot"
-      game.playTypeSelected = true
+      handleClick(game, playerId, cellIndex)
     },
   },
   events: {
     playerJoined: (playerId, { game }) => {
-      // Check if the game has already started
-      if (game.playTypeSelected) {
-        game.otherPlayerId = playerId
-        return
-      }
       // Else display the new player's avatar in the board.
       game.playerIds.push(playerId)
+      // reset the playing with bot
+      game.playingWithBot = false
+      // If player has joined then remove the bot player
+      game.playerIds = game.playerIds.filter((id) => id !== "bot")
+      // Also in all the cells replace the bot player with the new player
+      game.cells.forEach((cell, index) => {
+        if (cell.playerId === "bot") {
+          game.cells[index].playerId = playerId
+        }
+      })
     },
     playerLeft: (playerId, { game }) => {
-      // If the player who left is playing with the bot leaves, then the game should restart.
-      if (game.playerIds.includes(playerId)) {
-        game.playerIds = game.playerIds.filter((id) => id !== playerId)
-        // Rune.showGameOverPopUp()
-        // if (game.otherPlayerId) {
-        //   game.playerIds = [game.otherPlayerId]
-        // }
-      }
-      // Check if the player is playing with the bot
-      if (game.playingWithBot) {
-        // If the player is playing with the bot, then the other player leaving should not end the game
-        return
-      }
+      game.playerIds = game.playerIds.filter((id) => id !== playerId)
+      // reset the playing with bot
+      game.playingWithBot = true
+
+      // If one player has left, then add the bot player to the playerId
+      game.playerIds.push("bot")
+
+      // Also in all the cells replace the player with the bot player
+      game.cells.forEach((cell, index) => {
+        if (cell.playerId === playerId) {
+          game.cells[index].playerId = "bot"
+        }
+      })
     },
   },
 })

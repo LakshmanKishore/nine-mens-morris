@@ -37,6 +37,20 @@ const LINE_STROKE_WIDTH = (7).toString()
 const CELL_SIZE = (+ELLIPSE_STROKE_WIDTH * 4).toString()
 const STROKE_COLOR = "#e6e6e6"
 
+function getShowPlayerHTML(player: Player, index: number, showYou: boolean) {
+  const li = document.createElement("li")
+  li.setAttribute("player", index.toString())
+
+  li.innerHTML = `
+  <div class="player-info">
+    <img src="${player.avatarUrl}" />
+    <span>${player.displayName} ${showYou ? "<br>(You)" : ""}
+    </span>
+  </div>`
+
+  return li
+}
+
 function initUI(
   cells: Cells[],
   playerIds: PlayerId[],
@@ -130,27 +144,48 @@ function initUI(
   })
 
   playerContainers = playerIds.map((playerId, index) => {
-    const player = Rune.getPlayerInfo(playerId)
+    let li: HTMLLIElement
 
-    const li = document.createElement("li")
-    li.setAttribute("player", index.toString())
     if (playerId === "bot") {
-      li.innerHTML = `<div class="player-info"><img id="bot-image" />
-           <span>Bot</span></div>`
+      const player: Player = {
+        displayName: "Bot",
+        avatarUrl: "/src/assets/robot.png",
+        playerId: "bot",
+      }
+      li = getShowPlayerHTML(player, index, false)
     } else {
-      li.innerHTML = `<div class="player-info"><img src="${player.avatarUrl}" />
-           <span>${
-             player.displayName +
-             (player.playerId === yourPlayerId ? "<br>(You)" : "")
-           }</span></div>`
+      const player = Rune.getPlayerInfo(playerId)
+      li = getShowPlayerHTML(player, index, player.playerId === yourPlayerId)
     }
-    li.innerHTML += `<div class="remaining-mills"></div>`
-    // li.innerHTML += `<span>xxx</span>`
-    // li.innerHTML += `<span>xxx</span></div>`
-    // li.innerHTML += `<div><span>xxx</span></div>`
+
     playersSection.appendChild(li)
 
     return li
+
+    // const player = Rune.getPlayerInfo(playerId)
+    // getShowPlayerHTML(player, player.playerId === yourPlayerId)
+    // const li = document.createElement("li")
+    // li.setAttribute("player", index.toString())
+
+    // if (playerId === "bot") {
+    //   li.innerHTML = `<div class="player-info"><img id="bot-image" />
+    //        <span>Bot</span></div>`
+    // } else {
+    //   const player = Rune.getPlayerInfo(playerId)
+    //   li.innerHTML = `<div class="player-info"><img src="${player.avatarUrl}" />
+    //        <span>${
+    //          player.displayName +
+    //          (player.playerId === yourPlayerId ? "<br>(You)" : "")
+    //        }</span></div>`
+    // }
+
+    // li.innerHTML += `<div class="remaining-mills"></div>`
+    // // li.innerHTML += `<span>xxx</span>`
+    // // li.innerHTML += `<span>xxx</span></div>`
+    // // li.innerHTML += `<div><span>xxx</span></div>`
+    // playersSection.appendChild(li)
+
+    // return li
   })
 
   // if (playerIds.length === 1) {
@@ -180,6 +215,7 @@ Rune.initClient({
     // Get all the player ids information
     const playersInfo = playerIds.reduce(
       (acc, playerId) => {
+        if (playerId === "bot") return acc
         const info: Player = Rune.getPlayerInfo(playerId)
         acc[playerId] = info
         return acc
@@ -271,55 +307,12 @@ Rune.initClient({
         "your-turn",
         String(playerIds[i] !== lastMovePlayerId)
       )
-
-      // Update the remaining mills
-      // const remainingMills = container.querySelector(".remaining-mills")!
-      // Get the count of the current player's cells
-      // for (let j = 0; j < game.cellPlacedCount; j += 2) {
-      //   remainingMills.innerHTML += `<img src=${playersInfo[playerIds[i]].avatarUrl} />`
-      // }
     })
 
     gameBoardSVG.setAttribute(
       "your-turn",
       String(yourPlayerId !== lastMovePlayerId)
     )
-
-    // Bot click handler
-    if (game.playingWithBot) {
-      if (lastMovePlayerId === yourPlayerId) {
-        // It's bots turn, randomly click on a clickable cell.
-        let randomIndex = Math.floor(Math.random() * game.clickableCells.length)
-        let index = game.clickableCells[randomIndex]
-        setTimeout(() => {
-          // when next action is to move, then first click should be any random, but the second click should be of neighbor clickable cell.
-          if (game.nextAction === "selectToMove") {
-            randomIndex = Math.floor(
-              Math.random() * game.neighborHighlightCells.length
-            )
-            index = game.neighborHighlightCells[randomIndex]
-          }
-          // Add the fromBot attribute to the image element of the index.
-          cellImages[index].setAttribute("from-bot", "true")
-          // Remove the pointer event style for the image.
-          cellImages[index].style.pointerEvents = "all"
-          // Perform the click
-          cellImages[index].dispatchEvent(
-            new MouseEvent("click", { bubbles: true })
-          )
-          cellImages[index].removeAttribute("from-bot")
-          cellImages[index].style.pointerEvents = "none"
-        }, 1000)
-        // if (game.botClickCanBeInitiated) {
-        //   setTimeout(() => {
-        //     Rune.actions.handleClick({
-        //       cellIndex: index,
-        //       fromBot: true,
-        //     })
-        //   }, 2000)
-        // }
-      }
-    }
 
     // Play a sound after placing a cell
     // console.log("selectSound", selectSound, action)

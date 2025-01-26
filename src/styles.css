@@ -87,7 +87,7 @@ image[is-part-of-mill="true"] {
 }
 
 image[selected="true"] {
-  outline: var(--ellipse-stroke-width) solid orange;
+  outline: var(--ellipse-stroke-width) solid blue;
 }
 
 image[neighbor-highlight="true"] {

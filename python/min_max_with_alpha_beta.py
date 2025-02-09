@@ -26,10 +26,12 @@ class Board:
     self.total_cells_to_place = 17
     self.cell_placed_count = 0
     self.selected_index_to_move: int = -1
+    self.game_over: bool = False
     self.removable_opponent_cells: List[int] = []
     self.removed_men: List[int] = []
     self.current_mill_indexes: List[int] = []
     self.possible_movable_destinations: List[int] = []
+    self.possible_movable_mens: List[int] = []
     self.mills: List[List[int]] = [
       [0, 1, 2],
       [2, 3, 4],
@@ -84,6 +86,7 @@ class Board:
 
   def perform_next_move(self, index: int) -> List[int]:
     updated_board: List[int] = self.board[:]
+    print("-" * 50)
 
     if self.next_action == "selectToRemove":
       if (
@@ -107,11 +110,14 @@ class Board:
           print("Invalid Destination")
           return updated_board
 
-        # TODO: Update the current_mill_indexes list here.
+        if updated_board[index] != 0:
+          print("Cell already occupied")
+          return updated_board
 
-      if updated_board[index] != 0:
-        print("Cell already occupied")
-        return updated_board
+        updated_board[self.selected_index_to_move] = 0
+        self.selected_index_to_move = 0
+
+        # TODO: Update the current_mill_indexes list here.
 
       # Placing the men on the board
       updated_board[index] = self.current_player
@@ -138,24 +144,27 @@ class Board:
 
           opponent_player_mills = self.get_player_mills(opponent_player)
 
-          for i in self.get_player_indexes(opponent_player):
+          for i in self.get_player_indexes(updated_board, opponent_player):
             if i not in opponent_player_mills:
               self.removable_opponent_cells.append(i)
 
-          print("Removable Cells: ", self.removable_opponent_cells)
-
-          return updated_board
+          if len(self.removable_opponent_cells) != 0:
+            return updated_board
 
     elif self.next_action == "selectToMove":
+      # Check if the selected index is empty
+      if self.board[index] != self.current_player:
+        print("Select different men to move")
+        return updated_board
+
       # Display the possible moves
-      possible_destinations: List[int] = []
+      self.possible_movable_destinations = []
+
       for i in self.reachable_cell_indexes[index]:
         if self.board[i] == 0:
-          possible_destinations.append(i)
+          self.possible_movable_destinations.append(i)
 
-      print(f"Possible destinations for index {index} are: {possible_destinations}")
-
-      if len(possible_destinations) == 0:
+      if len(self.possible_movable_destinations) == 0:
         print("Select different men to move")
         return updated_board
 
@@ -173,12 +182,29 @@ class Board:
     else:
       self.next_action = "selectToPlace"
 
+    previous_player = self.current_player
+
     # Update the next player turn to other player
     self.current_player = 2 if self.current_player == 1 else 1
+
+    if self.next_action == "selectToMove":
+      # For all the possible movable mens check if any of the neighbors is empty, else remove from the list
+      possible_movable_mens = self.get_player_indexes(updated_board, self.current_player)
+      self.possible_movable_mens = []
+      for men in possible_movable_mens:
+        for i in self.reachable_cell_indexes[men]:
+          if updated_board[i] == 0:
+            self.possible_movable_mens.append(men)
+            break
+
+      if len(self.possible_movable_mens) == 0:
+        # Declare the winner and exit
+        self.declare_winner(previous_player)
+
     return updated_board
 
-  def get_player_indexes(self, player: int) -> List[int]:
-    return [i for i, x in enumerate(self.board) if x == player]
+  def get_player_indexes(self, board: List[int], player: int) -> List[int]:
+    return [i for i, x in enumerate(board) if x == player]
 
   def get_player_mills(self, player: int) -> List[int]:
     player_mills: List[int] = []
@@ -188,6 +214,11 @@ class Board:
         player_mills += self.mills[i]
 
     return player_mills
+
+  def declare_winner(self, player: int) -> None:
+    print(f"Player {player} has won the game")
+    self.game_over = True
+    return
 
   def get_value(self) -> int:
     next_player_turn = 2 if self.current_player == 1 else 1
@@ -277,7 +308,10 @@ def start_game():
   print("Welcome to the game!!!")
   game_board = Board()
 
-  while game_board.cell_placed_count != game_board.total_cells_to_place:
+  while True:
+    if game_board.game_over:
+      break
+
     game_board.display()
     print(
       "Next Action: ",
@@ -286,13 +320,29 @@ def start_game():
       "Player: ",
       game_board.current_player,
       "\t",
-      "Remaining Cells: ",
+      "Remaining Mens to be placed: ",
       game_board.total_cells_to_place - game_board.cell_placed_count,
     )
+    if game_board.removable_opponent_cells:
+      print("Removable Cells: ", game_board.removable_opponent_cells)
+
+    if game_board.next_action == "selectDestination":
+      print(
+        f"Possible destinations for index {game_board.selected_index_to_move} are: {game_board.possible_movable_destinations}"
+      )
+
+    if game_board.next_action == "selectToMove":
+      print(
+        f"Possible moves for player {game_board.current_player} are: {game_board.possible_movable_mens}"
+      )
+
     index = input("Enter the index: ")
 
     try:
       index = int(index)
+
+      if index < 0 or index > 23:
+        raise ValueError
     except ValueError:
       print("Invalid Input")
       continue
@@ -302,51 +352,3 @@ def start_game():
 
 if __name__ == "__main__":
   start_game()
-
-# def min_max(board: List[int], player: Literal[1, 2], depth: int) -> int:  # mm->min_max
-#     global count, last_state
-#     if depth == 5:
-#         count += 1
-#         # print(b)
-#         last_state = board
-#         return value(board)
-#     empty_list: List[int] = get_empty_loc(board)
-#     player = 2 if player == 1 else 1
-#     for i in empty_list:
-#         updated_board = perform_next_move(board, i, player)
-#         # here if a mill is formed, then player wont change
-#         # remove opponents men if mill formed.
-#         # if
-#         min_max(updated_board, player, depth + 1)
-
-#     return 0
-
-
-# def value(board: List[int]) -> int:
-#   for mill in mills:
-#     if board[mill[0]] == board[mill[1]] == board[mill[2]] == (board[mill[0]] in [0, 1]):
-#       return 1
-#   return 0
-
-
-# def print_board(board: List[int]) -> None:
-#   format = """
-# 0_00           0_01           0_02
-#      0_08      0_09      0_10
-#           0_16 0_17 0_18
-# 0_07 0_15 0_23      0_19 0_11 0_03
-#           0_22 0_21 0_20
-#      0_14      0_13      0_12
-# 0_06           0_05           0_04
-#   """
-#   for i in range(24):
-#     format = format.replace(f"0_{i:02}", str(board[i]) + f"_{i:02}")
-#   print(format)
-
-
-# print_board(board)
-
-# board[0] = 1
-# # min_max(board, 1, 0)
-# print(count)
-# print_board(last_state)

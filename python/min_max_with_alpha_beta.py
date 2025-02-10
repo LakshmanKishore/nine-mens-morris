@@ -201,6 +201,18 @@ class Board:
         # Declare the winner and exit
         self.declare_winner(previous_player)
 
+
+    # Check if the count of any player is less than 3
+    current_player_count: int = len(self.get_player_indexes(updated_board, self.current_player))
+    previous_player_count: int = len(self.get_player_indexes(updated_board, previous_player))
+
+    if self.cell_placed_count >= self.total_cells_to_place:
+      if current_player_count <= 2:
+        self.declare_winner(previous_player)
+
+      if previous_player_count <= 2:
+        self.declare_winner(self.current_player)
+
     return updated_board
 
   def get_player_indexes(self, board: List[int], player: int) -> List[int]:

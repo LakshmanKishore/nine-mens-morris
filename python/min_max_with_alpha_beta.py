@@ -5,9 +5,9 @@ Python code for min max algo for 9mm
 from typing import List, Literal
 
 board: List[int] = [0] * 24  # b->board
-next_action: Literal["selectToPlace", "selectToMove", "selectDestination", "selectToRemove"] = (
-  "selectToPlace"
-)
+next_action: Literal[
+  "selectToPlace", "selectToMove", "selectDestination", "selectToRemove"
+] = "selectToPlace"
 
 """
 first create tree till the placement and which ever the
@@ -27,6 +27,7 @@ class Board:
     self.cell_placed_count = 0
     self.selected_index_to_move: int = -1
     self.game_over: bool = False
+    self.winner: int = -1
     self.removable_opponent_cells: List[int] = []
     self.removed_men: List[int] = []
     self.current_mill_indexes: List[int] = []
@@ -189,7 +190,9 @@ class Board:
 
     if self.next_action == "selectToMove":
       # For all the possible movable mens check if any of the neighbors is empty, else remove from the list
-      possible_movable_mens = self.get_player_indexes(updated_board, self.current_player)
+      possible_movable_mens = self.get_player_indexes(
+        updated_board, self.current_player
+      )
       self.possible_movable_mens = []
       for men in possible_movable_mens:
         for i in self.reachable_cell_indexes[men]:
@@ -201,10 +204,13 @@ class Board:
         # Declare the winner and exit
         self.declare_winner(previous_player)
 
-
     # Check if the count of any player is less than 3
-    current_player_count: int = len(self.get_player_indexes(updated_board, self.current_player))
-    previous_player_count: int = len(self.get_player_indexes(updated_board, previous_player))
+    current_player_count: int = len(
+      self.get_player_indexes(updated_board, self.current_player)
+    )
+    previous_player_count: int = len(
+      self.get_player_indexes(updated_board, previous_player)
+    )
 
     if self.cell_placed_count >= self.total_cells_to_place:
       if current_player_count <= 2:
@@ -230,6 +236,7 @@ class Board:
   def declare_winner(self, player: int) -> None:
     print(f"Player {player} has won the game")
     self.game_over = True
+    self.winner = player
     return
 
   def get_value(self) -> int:
@@ -281,20 +288,76 @@ class Board:
       ):
         possible_mills_for_next_player += 1
 
+    # 3. Check how many places a mill will be formed for sure in the next move for the current player.
+    definite_mills_for_current_player_in_next_move = 0
+    definite_mills_for_next_player_in_next_move = 0
+
+    for index, player in enumerate(self.board):
+      if player != 0:
+        # Get the possible mills for this index
+        possible_mills_for_index = self.get_mills_for_index(index)
+
+        # Create combinations of 4 from the possible mills except the index
+        first_mill = possible_mills_for_index[0]
+        second_mill = possible_mills_for_index[1]
+
+        for first_mill_index in first_mill:
+          for second_mill_index in second_mill:
+            if first_mill_index != index and second_mill_index != index:
+              # Check if the next move will create a mill
+              if (
+                self.board[first_mill_index] == self.current_player
+                and self.board[second_mill_index] == self.current_player
+              ):
+                definite_mills_for_current_player_in_next_move += 1
+
+              if (
+                self.board[first_mill_index] == next_player_turn
+                and self.board[second_mill_index] == next_player_turn
+              ):
+                definite_mills_for_next_player_in_next_move += 1
+
     # Get the removed current player count
     removed_current_player_count = self.removed_men.count(self.current_player)
 
     # Get the removed next player count
     removed_next_player_count = self.removed_men.count(next_player_turn)
 
+    print(f"""
+    possible_mills_for_current_player_in_next_move: {definite_mills_for_current_player_in_next_move}
+    possible_mills_for_current_player: {possible_mills_for_current_player}
+    removed_next_player_count: {removed_next_player_count}
+
+    possible_mills_for_next_player: {possible_mills_for_next_player}
+    possible_mills_for_next_player_in_next_move: {definite_mills_for_next_player_in_next_move}
+    removed_current_player_count: {removed_current_player_count}
+    """)
+
     score: int = (
-      (3 * possible_mills_for_current_player)
+      (4 * definite_mills_for_current_player_in_next_move)
+      + (3 * possible_mills_for_current_player)
       + removed_next_player_count
-      - (3 * possible_mills_for_next_player)
+      - (3 * definite_mills_for_next_player_in_next_move)
+      - (2 * possible_mills_for_next_player)
       - removed_current_player_count
     )
 
     return score
+
+  def get_neighbor(self, index: int, level: int) -> int:
+    return (index + level) % 8 + ((index // 8) * 8)
+
+  def get_mills_for_index(self, index: int) -> List[List[int]]:
+    if index % 2 == 0:  # corners
+      return [
+        [index, self.get_neighbor(index, 1), self.get_neighbor(index, 2)],
+        [index, self.get_neighbor(index, -1), self.get_neighbor(index, -2)],
+      ]
+    else:  # middle
+      return [
+        [index, self.get_neighbor(index, 1), self.get_neighbor(index, -1)],
+        [i for i in range(index - (2 * 8), index + (2 * 8) + 1, 8) if i > 0 and i < 24],
+      ]
 
   def display(self) -> None:
     format = """
@@ -319,6 +382,9 @@ last_state: List[int] = []
 def start_game():
   print("Welcome to the game!!!")
   game_board = Board()
+
+  for i in range(24):
+    print(game_board.get_mills_for_index(i))
 
   while True:
     if game_board.game_over:
@@ -353,8 +419,15 @@ def start_game():
     try:
       index = int(index)
 
-      if index < 0 or index > 23:
+      # TODO: Remove this, as this just for testing
+      if index == 25:
+        # Print the score of the current state of the board
+        print("Score: ", game_board.get_value())
+        continue
+
+      elif index < 0 or index > 23:
         raise ValueError
+
     except ValueError:
       print("Invalid Input")
       continue

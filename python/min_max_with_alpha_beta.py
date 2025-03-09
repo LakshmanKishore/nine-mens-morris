@@ -2,7 +2,7 @@
 Python code for min max algo for 9mm
 """
 
-from typing import List, Literal
+from typing import List, Literal, Set
 
 board: List[int] = [0] * 24  # b->board
 next_action: Literal[
@@ -97,7 +97,7 @@ class Board:
         print("Invalid Selection")
         return updated_board
 
-      self.removed_men.append(index)
+      self.removed_men.append(self.board[index])
       updated_board[index] = 0
 
       self.removable_opponent_cells = []
@@ -118,7 +118,13 @@ class Board:
         updated_board[self.selected_index_to_move] = 0
         self.selected_index_to_move = 0
 
-        # TODO: Update the current_mill_indexes list here.
+        # Loop through all the current mill indexes and check if there is any mill that got broken by the move.
+        for i in self.current_mill_indexes:
+          mill = self.mills[i]
+          if (
+            self.board[mill[0]] == self.board[mill[1]] == self.board[mill[2]]
+          ) and index in mill:
+            self.current_mill_indexes.remove(i)
 
       # Placing the men on the board
       updated_board[index] = self.current_player
@@ -292,30 +298,31 @@ class Board:
     definite_mills_for_current_player_in_next_move = 0
     definite_mills_for_next_player_in_next_move = 0
 
-    for index, player in enumerate(self.board):
-      if player != 0:
-        # Get the possible mills for this index
-        possible_mills_for_index = self.get_mills_for_index(index)
+    if self.cell_placed_count <= self.total_cells_to_place:
+      for index, player in enumerate(self.board):
+        if player != 0:
+          # Get the possible mills for this index
+          possible_mills_for_index = self.get_mills_for_index(index)
 
-        # Create combinations of 4 from the possible mills except the index
-        first_mill = possible_mills_for_index[0]
-        second_mill = possible_mills_for_index[1]
+          # Create combinations of 4 from the possible mills except the index
+          first_mill = possible_mills_for_index[0]
+          second_mill = possible_mills_for_index[1]
 
-        for first_mill_index in first_mill:
-          for second_mill_index in second_mill:
-            if first_mill_index != index and second_mill_index != index:
-              # Check if the next move will create a mill
-              if (
-                self.board[first_mill_index] == self.current_player
-                and self.board[second_mill_index] == self.current_player
-              ):
-                definite_mills_for_current_player_in_next_move += 1
+          for first_mill_index in first_mill:
+            for second_mill_index in second_mill:
+              if first_mill_index != index and second_mill_index != index:
+                # Check if the next move will create a mill
+                if (
+                  self.board[first_mill_index] == self.current_player
+                  and self.board[second_mill_index] == self.current_player
+                ):
+                  definite_mills_for_current_player_in_next_move += 1
 
-              if (
-                self.board[first_mill_index] == next_player_turn
-                and self.board[second_mill_index] == next_player_turn
-              ):
-                definite_mills_for_next_player_in_next_move += 1
+                if (
+                  self.board[first_mill_index] == next_player_turn
+                  and self.board[second_mill_index] == next_player_turn
+                ):
+                  definite_mills_for_next_player_in_next_move += 1
 
     # Get the removed current player count
     removed_current_player_count = self.removed_men.count(self.current_player)
@@ -323,20 +330,67 @@ class Board:
     # Get the removed next player count
     removed_next_player_count = self.removed_men.count(next_player_turn)
 
+    # * This heuristic is for checking if there are any state that can have mill every move.
+    mill_every_move_current_player: int = 0
+    mill_every_move_next_player: int = 0
+
+    # Get all movable mens
+    all_movable_men: List[int] = []
+    all_movable_men += self.get_player_indexes(self.board, self.current_player)
+    all_movable_men += self.get_player_indexes(self.board, next_player_turn)
+
+    for men in all_movable_men:
+      destinations: List[int] = self.get_all_neighbors_with_type(men, 0)
+      movable_men_mills = self.get_mills_for_index(men)
+
+      # For each destination, get mills
+      # destination_mills = get_mills_for_index()
+      for destination in destinations:
+        destination_mills = self.get_mills_for_index(destination)
+
+        # Getting double mill every move pair
+        every_move_mill_pair: List[List[int]] = []
+        if destination_mills[0] == movable_men_mills[0]:
+          every_move_mill_pair.append(destination_mills[1])
+          every_move_mill_pair.append(movable_men_mills[1])
+        elif destination_mills[0] == movable_men_mills[1]:
+          every_move_mill_pair.append(destination_mills[1])
+          every_move_mill_pair.append(movable_men_mills[0])
+        elif destination_mills[1] == movable_men_mills[0]:
+          every_move_mill_pair.append(destination_mills[0])
+          every_move_mill_pair.append(movable_men_mills[1])
+        else:
+          every_move_mill_pair.append(destination_mills[0])
+          every_move_mill_pair.append(movable_men_mills[0])
+
+        mens_of_every_move_mill_pair: Set[int] = set(
+          [self.board[j] for i in every_move_mill_pair for j in i if j != destination]
+        )
+
+        if len(mens_of_every_move_mill_pair) == 1:
+          if self.board[men] == self.current_player:
+            mill_every_move_current_player += 1
+          else:
+            mill_every_move_next_player += 1
+
     print(f"""
-    possible_mills_for_current_player_in_next_move: {definite_mills_for_current_player_in_next_move}
+    definite_possible_mills_for_current_player_in_next_move: {definite_mills_for_current_player_in_next_move}
     possible_mills_for_current_player: {possible_mills_for_current_player}
     removed_next_player_count: {removed_next_player_count}
+    mill_every_move_current_player: {mill_every_move_current_player}
 
+    definite_possible_mills_for_next_player_in_next_move: {definite_mills_for_next_player_in_next_move}
     possible_mills_for_next_player: {possible_mills_for_next_player}
-    possible_mills_for_next_player_in_next_move: {definite_mills_for_next_player_in_next_move}
     removed_current_player_count: {removed_current_player_count}
+    mill_every_move_next_player: {mill_every_move_next_player}
     """)
 
     score: int = (
-      (4 * definite_mills_for_current_player_in_next_move)
+      (5 * mill_every_move_current_player)
+      + (4 * definite_mills_for_current_player_in_next_move)
       + (3 * possible_mills_for_current_player)
       + removed_next_player_count
+      - (4 * mill_every_move_next_player)
       - (3 * definite_mills_for_next_player_in_next_move)
       - (2 * possible_mills_for_next_player)
       - removed_current_player_count
@@ -347,16 +401,40 @@ class Board:
   def get_neighbor(self, index: int, level: int) -> int:
     return (index + level) % 8 + ((index // 8) * 8)
 
+  def get_all_neighbors_with_type(self, index: int, type: int) -> List[int]:
+    neighbors: List[int] = []
+    left_neighbor = self.get_neighbor(index, -1)
+    right_neighbor = self.get_neighbor(index, 1)
+
+    if self.board[left_neighbor] == type:
+      neighbors.append(left_neighbor)
+    if self.board[right_neighbor] == type:
+      neighbors.append(right_neighbor)
+
+    if index % 2 == 1:  # corners
+      for i in range(index - (2 * 8), index + (2 * 8) + 1, 8):
+        if i > 0 and i < 24 and i != index:
+          if self.board[i] == type:
+            neighbors.append(i)
+
+    return neighbors
+
   def get_mills_for_index(self, index: int) -> List[List[int]]:
     if index % 2 == 0:  # corners
       return [
-        [index, self.get_neighbor(index, 1), self.get_neighbor(index, 2)],
-        [index, self.get_neighbor(index, -1), self.get_neighbor(index, -2)],
+        sorted([index, self.get_neighbor(index, 1), self.get_neighbor(index, 2)]),
+        sorted([index, self.get_neighbor(index, -1), self.get_neighbor(index, -2)]),
       ]
     else:  # middle
       return [
-        [index, self.get_neighbor(index, 1), self.get_neighbor(index, -1)],
-        [i for i in range(index - (2 * 8), index + (2 * 8) + 1, 8) if i > 0 and i < 24],
+        sorted([index, self.get_neighbor(index, 1), self.get_neighbor(index, -1)]),
+        sorted(
+          [
+            i
+            for i in range(index - (2 * 8), index + (2 * 8) + 1, 8)
+            if i > 0 and i < 24
+          ]
+        ),
       ]
 
   def display(self) -> None:

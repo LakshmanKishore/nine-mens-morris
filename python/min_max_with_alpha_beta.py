@@ -2,6 +2,7 @@
 Python code for min max algo for 9mm
 """
 
+import copy
 from typing import List, Literal, Set
 
 board: List[int] = [0] * 24  # b->board
@@ -87,7 +88,7 @@ class Board:
 
   def perform_next_move(self, index: int) -> List[int]:
     updated_board: List[int] = self.board[:]
-    print("-" * 50)
+    # print("-" * 50)
 
     if self.next_action == "selectToRemove":
       if (
@@ -104,6 +105,10 @@ class Board:
 
     elif self.next_action in ("selectToPlace", "selectDestination"):
       if self.next_action == "selectToPlace":
+        if updated_board[index] != 0:
+          print("Cell already occupied")
+          return updated_board
+
         self.cell_placed_count += 1
 
       if self.next_action == "selectDestination":
@@ -145,6 +150,7 @@ class Board:
 
           # Mill has formed, now change the action and return
           self.next_action = "selectToRemove"
+          self.removable_opponent_cells = []
 
           # Print all the opponent removable cells
           opponent_player = 2 if self.current_player == 1 else 1
@@ -503,6 +509,17 @@ def start_game():
         print("Score: ", game_board.get_value())
         continue
 
+      if index == 26:
+        # Perform min max on the current state of the board
+        # Collect original board attributes before min max
+        # original_board_attributes = game_board.__dict__.copy()
+        game_board_copied = copy.deepcopy(game_board)
+
+        min_max(game_board_copied, 0)
+
+        print("ccccccccc:", c)
+        continue
+
       elif index < 0 or index > 23:
         raise ValueError
 
@@ -511,6 +528,49 @@ def start_game():
       continue
 
     game_board.board = game_board.perform_next_move(index)
+
+
+explored_states = {}
+c = 0
+
+
+def min_max(game_board: Board, depth: int):
+  # TODO: Check if the state has already been explored using the hash table
+  if depth == 3:
+    # game_board.display()
+    global c
+    c += 1
+    # print("c:", c)
+    return
+
+  if game_board.next_action == "selectToMove":
+    next_action_possible_positions = game_board.possible_movable_mens
+  elif game_board.next_action == "selectDestination":
+    next_action_possible_positions = game_board.possible_movable_destinations
+  elif game_board.next_action == "selectToRemove":
+    next_action_possible_positions = game_board.removable_opponent_cells
+  else:
+    next_action_possible_positions = game_board.get_all_empty_locations()
+
+  for index in next_action_possible_positions:
+    # Copy the board object attributes
+    # original_board_attributes = game_board.__dict__.copy()
+    game_board_copied = copy.deepcopy(game_board)
+
+    if game_board_copied.next_action == "selectToRemove":
+      game_board_copied.display()
+      print("Displaying for removal")
+
+    updated_board = game_board_copied.perform_next_move(index)
+    game_board_copied.board = updated_board
+    min_max(game_board_copied, depth + 1)
+
+    del game_board_copied
+
+    # Reset the board to the original state
+    # game_board.__dict__.update(original_board_attributes)
+
+  return
 
 
 if __name__ == "__main__":

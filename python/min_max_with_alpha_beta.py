@@ -3,7 +3,7 @@ Python code for min max algo for 9mm
 """
 
 import copy
-from typing import List, Literal, Set
+from typing import List, Literal, Set, Tuple
 
 board: List[int] = [0] * 24  # b->board
 next_action: Literal[
@@ -86,41 +86,40 @@ class Board:
         empty_list.append(i)
     return empty_list
 
-  def perform_next_move(self, index: int) -> List[int]:
-    updated_board: List[int] = self.board[:]
+  def perform_next_move(self, index: int):
     # print("-" * 50)
 
     if self.next_action == "selectToRemove":
       if (
-        updated_board[index] in (0, self.current_player)
+        self.board[index] in (0, self.current_player)
         or index not in self.removable_opponent_cells
       ):
         print("Invalid Selection")
-        return updated_board
+        return self.board
 
       self.removed_men.append(self.board[index])
-      updated_board[index] = 0
+      self.board[index] = 0
 
       self.removable_opponent_cells = []
 
     elif self.next_action in ("selectToPlace", "selectDestination"):
       if self.next_action == "selectToPlace":
-        if updated_board[index] != 0:
+        if self.board[index] != 0:
           print("Cell already occupied")
-          return updated_board
+          return self.board
 
         self.cell_placed_count += 1
 
       if self.next_action == "selectDestination":
         if index not in self.reachable_cell_indexes[self.selected_index_to_move]:
           print("Invalid Destination")
-          return updated_board
+          return self.board
 
-        if updated_board[index] != 0:
+        if self.board[index] != 0:
           print("Cell already occupied")
-          return updated_board
+          return self.board
 
-        updated_board[self.selected_index_to_move] = 0
+        self.board[self.selected_index_to_move] = 0
         self.selected_index_to_move = 0
 
         # Loop through all the current mill indexes and check if there is any mill that got broken by the move.
@@ -132,7 +131,7 @@ class Board:
             self.current_mill_indexes.remove(i)
 
       # Placing the men on the board
-      updated_board[index] = self.current_player
+      self.board[index] = self.current_player
 
       # Check if there is a mill formation
       for i, mill in enumerate(self.mills):
@@ -140,9 +139,9 @@ class Board:
           continue
 
         if (
-          updated_board[mill[0]]
-          == updated_board[mill[1]]
-          == updated_board[mill[2]]
+          self.board[mill[0]]
+          == self.board[mill[1]]
+          == self.board[mill[2]]
           == self.current_player
         ):
           # Add the mill index to the current mill indexes
@@ -157,18 +156,18 @@ class Board:
 
           opponent_player_mills = self.get_player_mills(opponent_player)
 
-          for i in self.get_player_indexes(updated_board, opponent_player):
+          for i in self.get_player_indexes(self.board, opponent_player):
             if i not in opponent_player_mills:
               self.removable_opponent_cells.append(i)
 
           if len(self.removable_opponent_cells) != 0:
-            return updated_board
+            return self.board
 
     elif self.next_action == "selectToMove":
       # Check if the selected index is empty
       if self.board[index] != self.current_player:
         print("Select different men to move")
-        return updated_board
+        return self.board
 
       # Display the possible moves
       self.possible_movable_destinations = []
@@ -179,15 +178,15 @@ class Board:
 
       if len(self.possible_movable_destinations) == 0:
         print("Select different men to move")
-        return updated_board
+        return self.board
 
       self.selected_index_to_move = index
       self.next_action = "selectDestination"
-      return updated_board
+      return self.board
 
     else:
       print("Invalid Action!")
-      return updated_board
+      return self.board
 
     if self.cell_placed_count > self.total_cells_to_place:
       self.next_action = "selectToMove"
@@ -202,13 +201,11 @@ class Board:
 
     if self.next_action == "selectToMove":
       # For all the possible movable mens check if any of the neighbors is empty, else remove from the list
-      possible_movable_mens = self.get_player_indexes(
-        updated_board, self.current_player
-      )
+      possible_movable_mens = self.get_player_indexes(self.board, self.current_player)
       self.possible_movable_mens = []
       for men in possible_movable_mens:
         for i in self.reachable_cell_indexes[men]:
-          if updated_board[i] == 0:
+          if self.board[i] == 0:
             self.possible_movable_mens.append(men)
             break
 
@@ -218,10 +215,10 @@ class Board:
 
     # Check if the count of any player is less than 3
     current_player_count: int = len(
-      self.get_player_indexes(updated_board, self.current_player)
+      self.get_player_indexes(self.board, self.current_player)
     )
     previous_player_count: int = len(
-      self.get_player_indexes(updated_board, previous_player)
+      self.get_player_indexes(self.board, previous_player)
     )
 
     if self.cell_placed_count >= self.total_cells_to_place:
@@ -230,8 +227,6 @@ class Board:
 
       if previous_player_count <= 2:
         self.declare_winner(self.current_player)
-
-    return updated_board
 
   def get_player_indexes(self, board: List[int], player: int) -> List[int]:
     return [i for i, x in enumerate(board) if x == player]
@@ -251,58 +246,58 @@ class Board:
     self.winner = player
     return
 
-  def get_value(self) -> int:
-    next_player_turn = 2 if self.current_player == 1 else 1
+  def get_value(self, player: int, print_heuristics: bool = False) -> int:
+    opponent_player = 2 if player == 1 else 1
 
-    # 1. Check how many places the mill can be formed for the current player.
-    possible_mills_for_current_player = 0
-
-    for mill in self.mills:
-      if (
-        (
-          self.board[mill[0]] == 0
-          and self.board[mill[1]] == self.current_player
-          and self.board[mill[2]] == self.current_player
-        )
-        or (
-          self.board[mill[0]] == self.current_player
-          and self.board[mill[1]] == 0
-          and self.board[mill[2]] == self.current_player
-        )
-        or (
-          self.board[mill[0]] == self.current_player
-          and self.board[mill[1]] == self.current_player
-          and self.board[mill[2]] == 0
-        )
-      ):
-        possible_mills_for_current_player += 1
-
-    # 2. Check how many places the mill can be formed for the next player.
-    possible_mills_for_next_player = 0
+    # 1. Check how many places the mill can be formed for the player.
+    possible_mills_for_player = 0
 
     for mill in self.mills:
       if (
         (
           self.board[mill[0]] == 0
-          and self.board[mill[1]] == next_player_turn
-          and self.board[mill[2]] == next_player_turn
+          and self.board[mill[1]] == player
+          and self.board[mill[2]] == player
         )
         or (
-          self.board[mill[0]] == next_player_turn
+          self.board[mill[0]] == player
           and self.board[mill[1]] == 0
-          and self.board[mill[2]] == next_player_turn
+          and self.board[mill[2]] == player
         )
         or (
-          self.board[mill[0]] == next_player_turn
-          and self.board[mill[1]] == next_player_turn
+          self.board[mill[0]] == player
+          and self.board[mill[1]] == player
           and self.board[mill[2]] == 0
         )
       ):
-        possible_mills_for_next_player += 1
+        possible_mills_for_player += 1
+
+    # 2. Check how many places the mill can be formed for the opponent player.
+    possible_mills_for_opponent_player = 0
+
+    for mill in self.mills:
+      if (
+        (
+          self.board[mill[0]] == 0
+          and self.board[mill[1]] == opponent_player
+          and self.board[mill[2]] == opponent_player
+        )
+        or (
+          self.board[mill[0]] == opponent_player
+          and self.board[mill[1]] == 0
+          and self.board[mill[2]] == opponent_player
+        )
+        or (
+          self.board[mill[0]] == opponent_player
+          and self.board[mill[1]] == opponent_player
+          and self.board[mill[2]] == 0
+        )
+      ):
+        possible_mills_for_opponent_player += 1
 
     # 3. Check how many places a mill will be formed for sure in the next move for the current player.
-    definite_mills_for_current_player_in_next_move = 0
-    definite_mills_for_next_player_in_next_move = 0
+    definite_mills_for_player_in_next_move = 0
+    definite_mills_for_opponent_player_in_next_move = 0
 
     if self.cell_placed_count <= self.total_cells_to_place:
       for index, player in enumerate(self.board):
@@ -319,87 +314,91 @@ class Board:
               if first_mill_index != index and second_mill_index != index:
                 # Check if the next move will create a mill
                 if (
-                  self.board[first_mill_index] == self.current_player
-                  and self.board[second_mill_index] == self.current_player
+                  self.board[first_mill_index] == player
+                  and self.board[second_mill_index] == player
                 ):
-                  definite_mills_for_current_player_in_next_move += 1
+                  definite_mills_for_player_in_next_move += 1
 
                 if (
-                  self.board[first_mill_index] == next_player_turn
-                  and self.board[second_mill_index] == next_player_turn
+                  self.board[first_mill_index] == opponent_player
+                  and self.board[second_mill_index] == opponent_player
                 ):
-                  definite_mills_for_next_player_in_next_move += 1
+                  definite_mills_for_opponent_player_in_next_move += 1
 
-    # Get the removed current player count
-    removed_current_player_count = self.removed_men.count(self.current_player)
+    # Get the removed player count
+    removed_player_count = self.removed_men.count(player)
 
-    # Get the removed next player count
-    removed_next_player_count = self.removed_men.count(next_player_turn)
+    # Get the removed opponent player count
+    removed_opponent_player_count = self.removed_men.count(opponent_player)
 
     # * This heuristic is for checking if there are any state that can have mill every move.
-    mill_every_move_current_player: int = 0
-    mill_every_move_next_player: int = 0
+    mill_every_move_for_player: int = 0
+    mill_every_move_for_opponent_player: int = 0
 
-    # Get all movable mens
-    all_movable_men: List[int] = []
-    all_movable_men += self.get_player_indexes(self.board, self.current_player)
-    all_movable_men += self.get_player_indexes(self.board, next_player_turn)
+    # Calculate this only during the player's turn
 
-    for men in all_movable_men:
-      destinations: List[int] = self.get_all_neighbors_with_type(men, 0)
-      movable_men_mills = self.get_mills_for_index(men)
+    if self.cell_placed_count >= self.total_cells_to_place:
+      # Get all movable mens
+      all_movable_men: List[int] = []
+      all_movable_men += self.get_player_indexes(self.board, player)
+      all_movable_men += self.get_player_indexes(self.board, opponent_player)
 
-      # For each destination, get mills
-      # destination_mills = get_mills_for_index()
-      for destination in destinations:
-        destination_mills = self.get_mills_for_index(destination)
+      for men in all_movable_men:
+        destinations: List[int] = self.get_all_neighbors_with_type(men, 0)
+        movable_men_mills = self.get_mills_for_index(men)
 
-        # Getting double mill every move pair
-        every_move_mill_pair: List[List[int]] = []
-        if destination_mills[0] == movable_men_mills[0]:
-          every_move_mill_pair.append(destination_mills[1])
-          every_move_mill_pair.append(movable_men_mills[1])
-        elif destination_mills[0] == movable_men_mills[1]:
-          every_move_mill_pair.append(destination_mills[1])
-          every_move_mill_pair.append(movable_men_mills[0])
-        elif destination_mills[1] == movable_men_mills[0]:
-          every_move_mill_pair.append(destination_mills[0])
-          every_move_mill_pair.append(movable_men_mills[1])
-        else:
-          every_move_mill_pair.append(destination_mills[0])
-          every_move_mill_pair.append(movable_men_mills[0])
+        # For each destination, get mills
+        # destination_mills = get_mills_for_index()
+        for destination in destinations:
+          destination_mills = self.get_mills_for_index(destination)
 
-        mens_of_every_move_mill_pair: Set[int] = set(
-          [self.board[j] for i in every_move_mill_pair for j in i if j != destination]
-        )
-
-        if len(mens_of_every_move_mill_pair) == 1:
-          if self.board[men] == self.current_player:
-            mill_every_move_current_player += 1
+          # Getting double mill every move pair
+          every_move_mill_pair: List[List[int]] = []
+          if destination_mills[0] == movable_men_mills[0]:
+            every_move_mill_pair.append(destination_mills[1])
+            every_move_mill_pair.append(movable_men_mills[1])
+          elif destination_mills[0] == movable_men_mills[1]:
+            every_move_mill_pair.append(destination_mills[1])
+            every_move_mill_pair.append(movable_men_mills[0])
+          elif destination_mills[1] == movable_men_mills[0]:
+            every_move_mill_pair.append(destination_mills[0])
+            every_move_mill_pair.append(movable_men_mills[1])
           else:
-            mill_every_move_next_player += 1
+            every_move_mill_pair.append(destination_mills[0])
+            every_move_mill_pair.append(movable_men_mills[0])
 
-    print(f"""
-    definite_possible_mills_for_current_player_in_next_move: {definite_mills_for_current_player_in_next_move}
-    possible_mills_for_current_player: {possible_mills_for_current_player}
-    removed_next_player_count: {removed_next_player_count}
-    mill_every_move_current_player: {mill_every_move_current_player}
+          mens_of_every_move_mill_pair: Set[int] = set(
+            [self.board[j] for i in every_move_mill_pair for j in i if j != destination]
+          )
 
-    definite_possible_mills_for_next_player_in_next_move: {definite_mills_for_next_player_in_next_move}
-    possible_mills_for_next_player: {possible_mills_for_next_player}
-    removed_current_player_count: {removed_current_player_count}
-    mill_every_move_next_player: {mill_every_move_next_player}
-    """)
+          if len(mens_of_every_move_mill_pair) == 1:
+            if self.board[men] == player:
+              mill_every_move_for_player += 1
+            else:
+              mill_every_move_for_opponent_player += 1
+
+    if print_heuristics:
+      print(f"""
+      definite_mills_for_player_in_next_move: {definite_mills_for_player_in_next_move}
+      possible_mills_for_player: {possible_mills_for_player}
+      removed_opponent_player_count: {removed_opponent_player_count}
+      mill_every_move_player: {mill_every_move_for_player}
+
+      definite_mills_for_opponent_player_in_next_move: {definite_mills_for_opponent_player_in_next_move}
+      possible_mills_for_opponent_player: {possible_mills_for_opponent_player}
+      removed_player_count: {removed_player_count}
+      mill_every_move_opponent_player: {mill_every_move_for_opponent_player}
+      """)
 
     score: int = (
-      (5 * mill_every_move_current_player)
-      + (4 * definite_mills_for_current_player_in_next_move)
-      + (3 * possible_mills_for_current_player)
-      + removed_next_player_count
-      - (4 * mill_every_move_next_player)
-      - (3 * definite_mills_for_next_player_in_next_move)
-      - (2 * possible_mills_for_next_player)
-      - removed_current_player_count
+      (5 * mill_every_move_for_player)
+      + (4 * definite_mills_for_player_in_next_move)
+      + (3 * possible_mills_for_player)
+      + removed_opponent_player_count
+      - (4 * mill_every_move_for_opponent_player)
+      - (3 * definite_mills_for_opponent_player_in_next_move)
+      - (2 * possible_mills_for_opponent_player)
+      - removed_player_count
     )
 
     return score
@@ -506,18 +505,33 @@ def start_game():
       # TODO: Remove this, as this just for testing
       if index == 25:
         # Print the score of the current state of the board
-        print("Score: ", game_board.get_value())
+        print("Score: ", game_board.get_value(2, True))
         continue
 
       if index == 26:
         # Perform min max on the current state of the board
         # Collect original board attributes before min max
         # original_board_attributes = game_board.__dict__.copy()
+
         game_board_copied = copy.deepcopy(game_board)
 
-        min_max(game_board_copied, 0)
+        if game_board.next_action == "selectToMove":
+          next_action_possible_positions = game_board.possible_movable_mens
+        elif game_board.next_action == "selectDestination":
+          next_action_possible_positions = game_board.possible_movable_destinations
+        elif game_board.next_action == "selectToRemove":
+          next_action_possible_positions = game_board.removable_opponent_cells
+        else:
+          next_action_possible_positions = game_board.get_all_empty_locations()
 
-        print("ccccccccc:", c)
+        # For each next action get the min max value and store it and choose the best one.
+        min_max_values: List[Tuple[int, int]] = []
+        for next_action in next_action_possible_positions:
+          min_max_values.append(
+            (next_action, min_max(game_board_copied, 0, next_action))
+          )
+
+        print("Min Max Values: ", min_max_values)
         continue
 
       elif index < 0 or index > 23:
@@ -527,21 +541,32 @@ def start_game():
       print("Invalid Input")
       continue
 
-    game_board.board = game_board.perform_next_move(index)
+    except Exception as e:
+      print("Error: ", e)
+      continue
+
+    game_board.perform_next_move(index)
 
 
 explored_states = {}
 c = 0
 
 
-def min_max(game_board: Board, depth: int):
+def min_max(game_board: Board, depth: int, initial_action: int) -> int:
   # TODO: Check if the state has already been explored using the hash table
-  if depth == 3:
+  if depth == 1:
+    # Get the value of the board state
+    value = game_board.get_value(2)
+    # print("Value: ", value)
     # game_board.display()
     global c
     c += 1
     # print("c:", c)
-    return
+    return value
+
+  # Perform the initial action
+  if initial_action != -1:
+    game_board.perform_next_move(initial_action)
 
   if game_board.next_action == "selectToMove":
     next_action_possible_positions = game_board.possible_movable_mens
@@ -552,25 +577,63 @@ def min_max(game_board: Board, depth: int):
   else:
     next_action_possible_positions = game_board.get_all_empty_locations()
 
-  for index in next_action_possible_positions:
-    # Copy the board object attributes
-    # original_board_attributes = game_board.__dict__.copy()
-    game_board_copied = copy.deepcopy(game_board)
+  if depth % 2 == 1:
+    # This means that it's the max player's turn which is 2
+    value = -9999999
 
-    if game_board_copied.next_action == "selectToRemove":
-      game_board_copied.display()
-      print("Displaying for removal")
+    for next_action_position in next_action_possible_positions:
+      game_board_copied = copy.deepcopy(game_board)
 
-    updated_board = game_board_copied.perform_next_move(index)
-    game_board_copied.board = updated_board
-    min_max(game_board_copied, depth + 1)
+      game_board_copied.perform_next_move(next_action_position)
 
-    del game_board_copied
+      value = max(value, min_max(game_board_copied, depth + 1, -1))
 
-    # Reset the board to the original state
-    # game_board.__dict__.update(original_board_attributes)
+    return value
+  else:
+    # This means that it's the min player's turn which is 1
+    value = 9999999
 
-  return
+    for next_action_position in next_action_possible_positions:
+      game_board_copied = copy.deepcopy(game_board)
+
+      game_board_copied.perform_next_move(next_action_position)
+
+      value = min(value, min_max(game_board_copied, depth + 1, -1))
+
+    return value
+
+  # next_best_move, next_best_move_leaf_value = (-1, 0)
+
+  # for next_action_position in next_action_possible_positions:
+  #   game_board_copied = copy.deepcopy(game_board)
+
+  #   # if game_board_copied.next_action == "selectToRemove":
+  #   #   game_board_copied.display()
+  #   #   print("Displaying for removal")
+
+  #   game_board_copied.perform_next_move(next_action_position)
+
+  #   min_max_index, min_max_value = min_max(
+  #     game_board_copied, depth + 1, next_action_position
+  #   )
+
+  #   if next_best_move == -1:
+  #     next_best_move = min_max_index
+  #     next_best_move_leaf_value = min_max_value
+
+  #   if depth % 2 == 0:
+  #     # Here we have to take the max value out of the children
+  #     if min_max_value > next_best_move_leaf_value:
+  #       next_best_move = min_max_index
+  #       next_best_move_leaf_value = min_max_value
+  #   else:
+  #     # Here we have to take the min value out of the children
+  #     if min_max_value < next_best_move_leaf_value:
+  #       next_best_move = min_max_index
+  #       next_best_move_leaf_value = min_max_value
+
+  # # Should return the next best position
+  # return (next_best_move, next_best_move_leaf_value)
 
 
 if __name__ == "__main__":

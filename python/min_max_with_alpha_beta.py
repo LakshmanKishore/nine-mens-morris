@@ -300,8 +300,8 @@ class Board:
     definite_mills_for_opponent_player_in_next_move = 0
 
     if self.cell_placed_count <= self.total_cells_to_place:
-      for index, player in enumerate(self.board):
-        if player != 0:
+      for index, men in enumerate(self.board):
+        if men != 0:
           # Get the possible mills for this index
           possible_mills_for_index = self.get_mills_for_index(index)
 
@@ -309,21 +309,27 @@ class Board:
           first_mill = possible_mills_for_index[0]
           second_mill = possible_mills_for_index[1]
 
-          for first_mill_index in first_mill:
-            for second_mill_index in second_mill:
-              if first_mill_index != index and second_mill_index != index:
-                # Check if the next move will create a mill
-                if (
-                  self.board[first_mill_index] == player
-                  and self.board[second_mill_index] == player
-                ):
-                  definite_mills_for_player_in_next_move += 1
+          first_mill.remove(index)
+          second_mill.remove(index)
 
-                if (
-                  self.board[first_mill_index] == opponent_player
-                  and self.board[second_mill_index] == opponent_player
-                ):
-                  definite_mills_for_opponent_player_in_next_move += 1
+          # For every two pair, check if the mens are same, if so then check if the other two positions are empty.
+          check_combinations = [[0, 0, 1, 1], [0, 1, 1, 0], [1, 0, 0, 1], [1, 1, 0, 0]]
+
+          for combination in check_combinations:
+            # if the first 2 combination index contain same men and the other 2 are empty, then in the next move there will be a mill formed.
+            if (
+              self.board[first_mill[combination[0]]]
+              == self.board[second_mill[combination[1]]]
+              == men
+            ) and (
+              self.board[first_mill[combination[2]]]
+              == self.board[second_mill[combination[3]]]
+              == 0
+            ):
+              if men == player:
+                definite_mills_for_player_in_next_move += 1
+              else:
+                definite_mills_for_opponent_player_in_next_move += 1
 
     # Get the removed player count
     removed_player_count = self.removed_men.count(player)
@@ -513,8 +519,6 @@ def start_game():
         # Collect original board attributes before min max
         # original_board_attributes = game_board.__dict__.copy()
 
-        game_board_copied = copy.deepcopy(game_board)
-
         if game_board.next_action == "selectToMove":
           next_action_possible_positions = game_board.possible_movable_mens
         elif game_board.next_action == "selectDestination":
@@ -527,8 +531,9 @@ def start_game():
         # For each next action get the min max value and store it and choose the best one.
         min_max_values: List[Tuple[int, int]] = []
         for next_action in next_action_possible_positions:
+          game_board_copied = copy.deepcopy(game_board)
           min_max_values.append(
-            (next_action, min_max(game_board_copied, 0, next_action))
+            (next_action, min_max(game_board_copied, 2, next_action, False))
           )
 
         print("Min Max Values: ", min_max_values)
@@ -552,9 +557,11 @@ explored_states = {}
 c = 0
 
 
-def min_max(game_board: Board, depth: int, initial_action: int) -> int:
+def min_max(
+  game_board: Board, depth: int, initial_action: int, maximizing_player: bool
+) -> int:
   # TODO: Check if the state has already been explored using the hash table
-  if depth == 1:
+  if depth == 0:
     # Get the value of the board state
     value = game_board.get_value(2)
     # print("Value: ", value)
@@ -577,63 +584,36 @@ def min_max(game_board: Board, depth: int, initial_action: int) -> int:
   else:
     next_action_possible_positions = game_board.get_all_empty_locations()
 
-  if depth % 2 == 1:
-    # This means that it's the max player's turn which is 2
+  if maximizing_player:
     value = -9999999
 
     for next_action_position in next_action_possible_positions:
       game_board_copied = copy.deepcopy(game_board)
-
       game_board_copied.perform_next_move(next_action_position)
-
-      value = max(value, min_max(game_board_copied, depth + 1, -1))
+      value = max(value, min_max(game_board_copied, depth - 1, -1, False))
+      print(
+        "-" * (5 - depth),
+        "".join([str(i) for i in game_board_copied.board]),
+        "-",
+        value,
+      )
 
     return value
   else:
-    # This means that it's the min player's turn which is 1
     value = 9999999
 
     for next_action_position in next_action_possible_positions:
       game_board_copied = copy.deepcopy(game_board)
-
       game_board_copied.perform_next_move(next_action_position)
-
-      value = min(value, min_max(game_board_copied, depth + 1, -1))
+      value = min(value, min_max(game_board_copied, depth - 1, -1, True))
+      print(
+        "-" * (5 - depth),
+        "".join([str(i) for i in game_board_copied.board]),
+        "-",
+        value,
+      )
 
     return value
-
-  # next_best_move, next_best_move_leaf_value = (-1, 0)
-
-  # for next_action_position in next_action_possible_positions:
-  #   game_board_copied = copy.deepcopy(game_board)
-
-  #   # if game_board_copied.next_action == "selectToRemove":
-  #   #   game_board_copied.display()
-  #   #   print("Displaying for removal")
-
-  #   game_board_copied.perform_next_move(next_action_position)
-
-  #   min_max_index, min_max_value = min_max(
-  #     game_board_copied, depth + 1, next_action_position
-  #   )
-
-  #   if next_best_move == -1:
-  #     next_best_move = min_max_index
-  #     next_best_move_leaf_value = min_max_value
-
-  #   if depth % 2 == 0:
-  #     # Here we have to take the max value out of the children
-  #     if min_max_value > next_best_move_leaf_value:
-  #       next_best_move = min_max_index
-  #       next_best_move_leaf_value = min_max_value
-  #   else:
-  #     # Here we have to take the min value out of the children
-  #     if min_max_value < next_best_move_leaf_value:
-  #       next_best_move = min_max_index
-  #       next_best_move_leaf_value = min_max_value
-
-  # # Should return the next best position
-  # return (next_best_move, next_best_move_leaf_value)
 
 
 if __name__ == "__main__":

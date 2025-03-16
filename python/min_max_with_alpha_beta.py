@@ -3,7 +3,8 @@ Python code for min max algo for 9mm
 """
 
 import copy
-from typing import List, Literal, Set, Tuple
+import time
+from typing import List, Literal, Set, Tuple, Dict
 
 board: List[int] = [0] * 24  # b->board
 next_action: Literal[
@@ -155,6 +156,8 @@ class Board:
           opponent_player = 2 if self.current_player == 1 else 1
 
           opponent_player_mills = self.get_player_mills(opponent_player)
+
+          # TODO: Some of the older mills are not appending to the list. Needs verification
 
           for i in self.get_player_indexes(self.board, opponent_player):
             if i not in opponent_player_mills:
@@ -519,6 +522,8 @@ def start_game():
         # Collect original board attributes before min max
         # original_board_attributes = game_board.__dict__.copy()
 
+        depth = 3
+
         if game_board.next_action == "selectToMove":
           next_action_possible_positions = game_board.possible_movable_mens
         elif game_board.next_action == "selectDestination":
@@ -528,15 +533,30 @@ def start_game():
         else:
           next_action_possible_positions = game_board.get_all_empty_locations()
 
+        if game_board.cell_placed_count >= game_board.total_cells_to_place:
+          depth = 8
+
+        # Get the time taken for getting the best move
+        start_time = time.time()
+
         # For each next action get the min max value and store it and choose the best one.
         min_max_values: List[Tuple[int, int]] = []
         for next_action in next_action_possible_positions:
           game_board_copied = copy.deepcopy(game_board)
           min_max_values.append(
-            (next_action, min_max(game_board_copied, 2, next_action, False))
+            (
+              next_action,
+              min_max(
+                game_board_copied, depth, next_action, False, -9999999999, 9999999999
+              ),
+            )
           )
 
         print("Min Max Values: ", min_max_values)
+        # Print the best move
+        best_move = max(min_max_values, key=lambda x: x[1])
+        print("Best Move: ", best_move)
+        print("Time Taken: ", time.time() - start_time)
         continue
 
       elif index < 0 or index > 23:
@@ -553,26 +573,32 @@ def start_game():
     game_board.perform_next_move(index)
 
 
-explored_states = {}
+explored_states: Dict[str, int] = {}
 c = 0
 
 
 def min_max(
-  game_board: Board, depth: int, initial_action: int, maximizing_player: bool
+  game_board: Board,
+  depth: int,
+  initial_action: int,
+  maximizing_player: bool,
+  alpha: int,
+  beta: int,
 ) -> int:
-  # TODO: Check if the state has already been explored using the hash table
+  global explored_states
   if depth == 0:
     # Get the value of the board state
     value = game_board.get_value(2)
-    # print("Value: ", value)
-    # game_board.display()
-    global c
-    c += 1
+
+    # Update the explored_states
+    board_string = "".join(map(str, game_board.board))
+    explored_states[board_string] = value
     # print("c:", c)
     return value
 
   # Perform the initial action
   if initial_action != -1:
+    explored_states = {}
     game_board.perform_next_move(initial_action)
 
   if game_board.next_action == "selectToMove":
@@ -590,13 +616,16 @@ def min_max(
     for next_action_position in next_action_possible_positions:
       game_board_copied = copy.deepcopy(game_board)
       game_board_copied.perform_next_move(next_action_position)
-      value = max(value, min_max(game_board_copied, depth - 1, -1, False))
-      print(
-        "-" * (5 - depth),
-        "".join([str(i) for i in game_board_copied.board]),
-        "-",
-        value,
-      )
+      game_board_string = "".join(map(str, game_board_copied.board))
+
+      if game_board_string in explored_states:
+        value = max(value, explored_states[game_board_string])
+        continue
+
+      value = max(value, min_max(game_board_copied, depth - 1, -1, False, alpha, beta))
+      alpha = max(alpha, value)
+      if alpha >= beta:
+        return value
 
     return value
   else:
@@ -605,13 +634,16 @@ def min_max(
     for next_action_position in next_action_possible_positions:
       game_board_copied = copy.deepcopy(game_board)
       game_board_copied.perform_next_move(next_action_position)
-      value = min(value, min_max(game_board_copied, depth - 1, -1, True))
-      print(
-        "-" * (5 - depth),
-        "".join([str(i) for i in game_board_copied.board]),
-        "-",
-        value,
-      )
+      game_board_string = "".join(map(str, game_board_copied.board))
+
+      if game_board_string in explored_states:
+        value = min(value, explored_states[game_board_string])
+        continue
+
+      value = min(value, min_max(game_board_copied, depth - 1, -1, True, alpha, beta))
+      beta = min(beta, value)
+      if alpha >= beta:
+        return value
 
     return value
 

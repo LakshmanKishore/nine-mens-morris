@@ -121,15 +121,16 @@ class Board:
           return self.board
 
         self.board[self.selected_index_to_move] = 0
-        self.selected_index_to_move = 0
 
         # Loop through all the current mill indexes and check if there is any mill that got broken by the move.
         for i in self.current_mill_indexes:
           mill = self.mills[i]
           if (
             self.board[mill[0]] == self.board[mill[1]] == self.board[mill[2]]
-          ) and index in mill:
+          ) and self.selected_index_to_move in mill:
             self.current_mill_indexes.remove(i)
+
+        self.selected_index_to_move = 0
 
       # Placing the men on the board
       self.board[index] = self.current_player
@@ -145,8 +146,10 @@ class Board:
           == self.board[mill[2]]
           == self.current_player
         ):
-          # Add the mill index to the current mill indexes
-          self.current_mill_indexes.append(i)
+          # Add the mill index to the current mill indexes, only if it is not already present
+          # TODO: If the current mill list getting updated here, then remove it in other part.
+          if i not in self.current_mill_indexes:
+            self.current_mill_indexes.append(i)
 
           # Mill has formed, now change the action and return
           self.next_action = "selectToRemove"
@@ -252,53 +255,51 @@ class Board:
   def get_value(self, player: int, print_heuristics: bool = False) -> int:
     opponent_player = 2 if player == 1 else 1
 
-    # 1. Check how many places the mill can be formed for the player.
+    # * Check how many places the mill can be formed.
     possible_mills_for_player = 0
-
-    for mill in self.mills:
-      if (
-        (
-          self.board[mill[0]] == 0
-          and self.board[mill[1]] == player
-          and self.board[mill[2]] == player
-        )
-        or (
-          self.board[mill[0]] == player
-          and self.board[mill[1]] == 0
-          and self.board[mill[2]] == player
-        )
-        or (
-          self.board[mill[0]] == player
-          and self.board[mill[1]] == player
-          and self.board[mill[2]] == 0
-        )
-      ):
-        possible_mills_for_player += 1
-
-    # 2. Check how many places the mill can be formed for the opponent player.
     possible_mills_for_opponent_player = 0
 
-    for mill in self.mills:
-      if (
-        (
-          self.board[mill[0]] == 0
-          and self.board[mill[1]] == opponent_player
-          and self.board[mill[2]] == opponent_player
-        )
-        or (
-          self.board[mill[0]] == opponent_player
-          and self.board[mill[1]] == 0
-          and self.board[mill[2]] == opponent_player
-        )
-        or (
-          self.board[mill[0]] == opponent_player
-          and self.board[mill[1]] == opponent_player
-          and self.board[mill[2]] == 0
-        )
-      ):
-        possible_mills_for_opponent_player += 1
+    if self.cell_placed_count <= self.total_cells_to_place:
+      for mill in self.mills:
+        if (
+          (
+            self.board[mill[0]] == 0
+            and self.board[mill[1]] == player
+            and self.board[mill[2]] == player
+          )
+          or (
+            self.board[mill[0]] == player
+            and self.board[mill[1]] == 0
+            and self.board[mill[2]] == player
+          )
+          or (
+            self.board[mill[0]] == player
+            and self.board[mill[1]] == player
+            and self.board[mill[2]] == 0
+          )
+        ):
+          possible_mills_for_player += 1
 
-    # 3. Check how many places a mill will be formed for sure in the next move for the current player.
+        if (
+          (
+            self.board[mill[0]] == 0
+            and self.board[mill[1]] == opponent_player
+            and self.board[mill[2]] == opponent_player
+          )
+          or (
+            self.board[mill[0]] == opponent_player
+            and self.board[mill[1]] == 0
+            and self.board[mill[2]] == opponent_player
+          )
+          or (
+            self.board[mill[0]] == opponent_player
+            and self.board[mill[1]] == opponent_player
+            and self.board[mill[2]] == 0
+          )
+        ):
+          possible_mills_for_opponent_player += 1
+
+    # * Check how many places a mill will be formed for sure in the next move for the current player.
     definite_mills_for_player_in_next_move = 0
     definite_mills_for_opponent_player_in_next_move = 0
 
@@ -344,6 +345,10 @@ class Board:
     mill_every_move_for_player: int = 0
     mill_every_move_for_opponent_player: int = 0
 
+    # * This heuristic is to check if there is a possible mill during the moving time.
+    possible_mill_during_move_for_player: int = 0
+    possible_mill_during_move_for_opponent_player: int = 0
+
     # Calculate this only during the player's turn
 
     if self.cell_placed_count >= self.total_cells_to_place:
@@ -386,28 +391,49 @@ class Board:
             else:
               mill_every_move_for_opponent_player += 1
 
+          # Now check if there are any mills in the next move.
+          focus_mill = (
+            destination_mills[1]
+            if men in destination_mills[0]
+            else destination_mills[0]
+          )
+          focus_mill.remove(destination)
+
+          if (
+            self.board[focus_mill[0]] == self.board[focus_mill[1]]
+            and self.board[focus_mill[0]] != 0
+          ):
+            if self.board[men] == player and self.board[focus_mill[0]] == player:
+              possible_mill_during_move_for_player += 1
+            else:
+              possible_mill_during_move_for_opponent_player += 1
+
     if print_heuristics:
       print(f"""
       definite_mills_for_player_in_next_move: {definite_mills_for_player_in_next_move}
       possible_mills_for_player: {possible_mills_for_player}
+      possible_mill_during_move_for_player: {possible_mill_during_move_for_player}
       removed_opponent_player_count: {removed_opponent_player_count}
       mill_every_move_player: {mill_every_move_for_player}
 
       definite_mills_for_opponent_player_in_next_move: {definite_mills_for_opponent_player_in_next_move}
       possible_mills_for_opponent_player: {possible_mills_for_opponent_player}
+      possible_mill_during_move_for_opponent_player: {possible_mill_during_move_for_opponent_player}
       removed_player_count: {removed_player_count}
       mill_every_move_opponent_player: {mill_every_move_for_opponent_player}
       """)
 
     score: int = (
-      (5 * mill_every_move_for_player)
+      (6 * removed_opponent_player_count)
+      + (5 * mill_every_move_for_player)
       + (4 * definite_mills_for_player_in_next_move)
       + (3 * possible_mills_for_player)
-      + removed_opponent_player_count
+      + (3 * possible_mill_during_move_for_player)
+      - (7 * removed_player_count)
       - (4 * mill_every_move_for_opponent_player)
       - (3 * definite_mills_for_opponent_player_in_next_move)
       - (2 * possible_mills_for_opponent_player)
-      - removed_player_count
+      - (2 * possible_mill_during_move_for_opponent_player)
     )
 
     return score
@@ -426,7 +452,7 @@ class Board:
       neighbors.append(right_neighbor)
 
     if index % 2 == 1:  # corners
-      for i in range(index - (2 * 8), index + (2 * 8) + 1, 8):
+      for i in range(index - (2 * 8), index + (2 * 8), 8):
         if i > 0 and i < 24 and i != index:
           if self.board[i] == type:
             neighbors.append(i)
@@ -506,6 +532,47 @@ def start_game():
         f"Possible moves for player {game_board.current_player} are: {game_board.possible_movable_mens}"
       )
 
+    if game_board.current_player == 2:
+      depth = 3
+
+      if game_board.next_action == "selectToMove":
+        next_action_possible_positions = game_board.possible_movable_mens
+      elif game_board.next_action == "selectDestination":
+        next_action_possible_positions = game_board.possible_movable_destinations
+      elif game_board.next_action == "selectToRemove":
+        next_action_possible_positions = game_board.removable_opponent_cells
+      else:
+        next_action_possible_positions = game_board.get_all_empty_locations()
+
+      if game_board.cell_placed_count >= game_board.total_cells_to_place:
+        depth = 8
+
+      # Get the time taken for getting the best move
+      start_time = time.time()
+
+      # For each next action get the min max value and store it and choose the best one.
+      min_max_values: List[Tuple[int, int]] = []
+      for next_action in next_action_possible_positions:
+        game_board_copied = copy.deepcopy(game_board)
+        min_max_values.append(
+          (
+            next_action,
+            min_max(
+              game_board_copied, depth, next_action, False, -9999999999, 9999999999
+            ),
+          )
+        )
+
+      print("Min Max Values: ", min_max_values)
+      # Print the best move
+      best_move = max(min_max_values, key=lambda x: x[1])
+
+      print("Best Move: ", best_move)
+      print("Time Taken: ", time.time() - start_time)
+      game_board.perform_next_move(best_move[0])
+
+      continue
+
     index = input("Enter the index: ")
 
     try:
@@ -555,8 +622,10 @@ def start_game():
         print("Min Max Values: ", min_max_values)
         # Print the best move
         best_move = max(min_max_values, key=lambda x: x[1])
+
         print("Best Move: ", best_move)
         print("Time Taken: ", time.time() - start_time)
+        game_board.perform_next_move(best_move[0])
         continue
 
       elif index < 0 or index > 23:
@@ -600,6 +669,10 @@ def min_max(
   if initial_action != -1:
     explored_states = {}
     game_board.perform_next_move(initial_action)
+
+  board_string = "".join(map(str, game_board.board))
+  if board_string in explored_states:
+    return explored_states[board_string]
 
   if game_board.next_action == "selectToMove":
     next_action_possible_positions = game_board.possible_movable_mens

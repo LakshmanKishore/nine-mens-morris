@@ -35,6 +35,7 @@ class Board:
     self.current_mill_indexes: List[int] = []
     self.possible_movable_destinations: List[int] = []
     self.possible_movable_mens: List[int] = []
+    self.moves_performed: List[int] = []
     self.mills: List[List[int]] = [
       [0, 1, 2],
       [2, 3, 4],
@@ -89,6 +90,7 @@ class Board:
 
   def perform_next_move(self, index: int):
     # print("-" * 50)
+    self.moves_performed.append(index)
 
     if self.next_action == "selectToRemove":
       if (
@@ -121,22 +123,21 @@ class Board:
           return self.board
 
         self.board[self.selected_index_to_move] = 0
-
-        # Loop through all the current mill indexes and check if there is any mill that got broken by the move.
-        for i in self.current_mill_indexes:
-          mill = self.mills[i]
-          if (
-            self.board[mill[0]] == self.board[mill[1]] == self.board[mill[2]]
-          ) and self.selected_index_to_move in mill:
-            self.current_mill_indexes.remove(i)
-
         self.selected_index_to_move = 0
 
       # Placing the men on the board
       self.board[index] = self.current_player
 
+      self.current_mill_indexes = []
+
       # Check if there is a mill formation
       for i, mill in enumerate(self.mills):
+        # Track all the mills that has been formed for both the players.
+        if (self.board[mill[0]] == self.board[mill[1]] == self.board[mill[2]]) and (
+          self.board[mill[0]] != 0
+        ):
+          self.current_mill_indexes.append(i)
+
         if index not in mill:
           continue
 
@@ -148,8 +149,8 @@ class Board:
         ):
           # Add the mill index to the current mill indexes, only if it is not already present
           # TODO: If the current mill list getting updated here, then remove it in other part.
-          if i not in self.current_mill_indexes:
-            self.current_mill_indexes.append(i)
+          # if i not in self.current_mill_indexes:
+          #   self.current_mill_indexes.append(i)
 
           # Mill has formed, now change the action and return
           self.next_action = "selectToRemove"
@@ -400,10 +401,10 @@ class Board:
           focus_mill.remove(destination)
 
           if (
-            self.board[focus_mill[0]] == self.board[focus_mill[1]]
+            self.board[focus_mill[0]] == self.board[focus_mill[1]] == self.board[men]
             and self.board[focus_mill[0]] != 0
           ):
-            if self.board[men] == player and self.board[focus_mill[0]] == player:
+            if self.board[men] == player:
               possible_mill_during_move_for_player += 1
             else:
               possible_mill_during_move_for_opponent_player += 1
@@ -424,12 +425,12 @@ class Board:
       """)
 
     score: int = (
-      (6 * removed_opponent_player_count)
+      (13 * removed_opponent_player_count)
       + (5 * mill_every_move_for_player)
       + (4 * definite_mills_for_player_in_next_move)
       + (3 * possible_mills_for_player)
       + (3 * possible_mill_during_move_for_player)
-      - (7 * removed_player_count)
+      - (10 * removed_player_count)
       - (4 * mill_every_move_for_opponent_player)
       - (3 * definite_mills_for_opponent_player_in_next_move)
       - (2 * possible_mills_for_opponent_player)
@@ -451,9 +452,9 @@ class Board:
     if self.board[right_neighbor] == type:
       neighbors.append(right_neighbor)
 
-    if index % 2 == 1:  # corners
+    if index % 2 == 1:  # middle
       for i in range(index - (2 * 8), index + (2 * 8), 8):
-        if i > 0 and i < 24 and i != index:
+        if i > 0 and i < 24 and i != index and (i - index in (-8, 8)):
           if self.board[i] == type:
             neighbors.append(i)
 
@@ -493,16 +494,12 @@ class Board:
 
 
 count = 0
-last_state: List[int] = []
 
 
 # if __name__ == "__main__":
 def start_game():
   print("Welcome to the game!!!")
   game_board = Board()
-
-  for i in range(24):
-    print(game_board.get_mills_for_index(i))
 
   while True:
     if game_board.game_over:
@@ -551,15 +548,22 @@ def start_game():
       start_time = time.time()
 
       # For each next action get the min max value and store it and choose the best one.
-      min_max_values: List[Tuple[int, int]] = []
+      min_max_values: List[Tuple[int, int, List[int]]] = []
       for next_action in next_action_possible_positions:
         game_board_copied = copy.deepcopy(game_board)
+        min_max_value, moves_performed = min_max(
+          game_board_copied,
+          depth,
+          next_action,
+          False,
+          -9999999999,
+          9999999999,
+        )
         min_max_values.append(
           (
             next_action,
-            min_max(
-              game_board_copied, depth, next_action, False, -9999999999, 9999999999
-            ),
+            min_max_value,
+            moves_performed[len(game_board.moves_performed) - 1 :],
           )
         )
 
@@ -607,16 +611,15 @@ def start_game():
         start_time = time.time()
 
         # For each next action get the min max value and store it and choose the best one.
-        min_max_values: List[Tuple[int, int]] = []
+        min_max_values: List[Tuple[int, int, List[int]]] = []
         for next_action in next_action_possible_positions:
           game_board_copied = copy.deepcopy(game_board)
+          min_max_value, moves_performed = min_max(
+            game_board_copied, depth, next_action, False, -9999999999, 9999999999
+          )
+          cutoff_length = len(game_board_copied.moves_performed)
           min_max_values.append(
-            (
-              next_action,
-              min_max(
-                game_board_copied, depth, next_action, False, -9999999999, 9999999999
-              ),
-            )
+            (next_action, min_max_value, moves_performed[cutoff_length - 1 :])
           )
 
         print("Min Max Values: ", min_max_values)
@@ -625,7 +628,7 @@ def start_game():
 
         print("Best Move: ", best_move)
         print("Time Taken: ", time.time() - start_time)
-        game_board.perform_next_move(best_move[0])
+        # game_board.perform_next_move(best_move[0])
         continue
 
       elif index < 0 or index > 23:
@@ -653,26 +656,21 @@ def min_max(
   maximizing_player: bool,
   alpha: int,
   beta: int,
-) -> int:
+) -> Tuple[int, List[int]]:
   global explored_states
   if depth == 0:
     # Get the value of the board state
     value = game_board.get_value(2)
 
-    # Update the explored_states
-    board_string = "".join(map(str, game_board.board))
-    explored_states[board_string] = value
-    # print("c:", c)
-    return value
+    return value, game_board.moves_performed
 
   # Perform the initial action
   if initial_action != -1:
-    explored_states = {}
     game_board.perform_next_move(initial_action)
 
-  board_string = "".join(map(str, game_board.board))
-  if board_string in explored_states:
-    return explored_states[board_string]
+  # board_string = "".join(map(str, game_board.board))
+  # if board_string in explored_states:
+  #   return explored_states[board_string]
 
   if game_board.next_action == "selectToMove":
     next_action_possible_positions = game_board.possible_movable_mens
@@ -685,6 +683,7 @@ def min_max(
 
   if maximizing_player:
     value = -9999999
+    moves_performed = []
 
     for next_action_position in next_action_possible_positions:
       game_board_copied = copy.deepcopy(game_board)
@@ -695,14 +694,21 @@ def min_max(
         value = max(value, explored_states[game_board_string])
         continue
 
-      value = max(value, min_max(game_board_copied, depth - 1, -1, False, alpha, beta))
+      if game_board.current_player == 1:
+        maximizing_player = False
+
+      min_max_value, moves_performed = min_max(
+        game_board_copied, depth - 1, -1, maximizing_player, alpha, beta
+      )
+      value = max(value, min_max_value)
       alpha = max(alpha, value)
       if alpha >= beta:
-        return value
+        return value, moves_performed
 
-    return value
+    return value, moves_performed
   else:
     value = 9999999
+    moves_performed = []
 
     for next_action_position in next_action_possible_positions:
       game_board_copied = copy.deepcopy(game_board)
@@ -713,12 +719,19 @@ def min_max(
         value = min(value, explored_states[game_board_string])
         continue
 
-      value = min(value, min_max(game_board_copied, depth - 1, -1, True, alpha, beta))
+      if game_board.current_player == 2:
+        maximizing_player = True
+
+      min_max_value, moves_performed = min_max(
+        game_board_copied, depth - 1, -1, maximizing_player, alpha, beta
+      )
+
+      value = min(value, min_max_value)
       beta = min(beta, value)
       if alpha >= beta:
-        return value
+        return value, moves_performed
 
-    return value
+    return value, moves_performed
 
 
 if __name__ == "__main__":

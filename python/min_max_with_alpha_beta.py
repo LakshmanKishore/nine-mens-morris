@@ -353,6 +353,10 @@ class Board:
     possible_mill_during_move_for_player: int = 0
     possible_mill_during_move_for_opponent_player: int = 0
 
+    # * This heuristic is to check for each movable men how many empty positions are there
+    non_movable_mens_current_player_count: int = 0
+    non_movable_mens_opponent_player_count: int = 0
+
     # Calculate this only during the player's turn
 
     if self.cell_placed_count >= self.total_cells_to_place:
@@ -363,6 +367,13 @@ class Board:
 
       for men in all_movable_men:
         destinations: List[int] = self.get_all_neighbors_with_type(men, 0)
+
+        if len(destinations) == 0:
+          if self.board[men] == self.current_player:
+            non_movable_mens_current_player_count += 1
+          else:
+            non_movable_mens_opponent_player_count += 1
+
         movable_men_mills = self.get_mills_for_index(men)
 
         # For each destination, get mills
@@ -412,34 +423,81 @@ class Board:
             else:
               possible_mill_during_move_for_opponent_player += 1
 
+    # current_player_score: int = int(
+    #   "".join(
+    #     [
+    #       str(i)
+    #       for i in [
+    #         removed_opponent_player_count,
+    #         mill_every_move_for_player,
+    #         definite_mills_for_player_in_next_move,
+    #         possible_mills_for_player,
+    #         possible_mill_during_move_for_player,
+    #         non_movable_mens_opponent_player_count,
+    #       ]
+    #     ]
+    #   )
+    # )
+
+    # opponent_player_score: int = int(
+    #   "".join(
+    #     [
+    #       str(i)
+    #       for i in [
+    #         removed_player_count,
+    #         mill_every_move_for_opponent_player,
+    #         definite_mills_for_opponent_player_in_next_move,
+    #         possible_mills_for_opponent_player,
+    #         possible_mill_during_move_for_opponent_player,
+    #         non_movable_mens_current_player_count,
+    #       ]
+    #     ]
+    #   )
+    # )
+
     if print_heuristics:
       print(f"""
       definite_mills_for_player_in_next_move: {definite_mills_for_player_in_next_move}
       possible_mills_for_player: {possible_mills_for_player}
       possible_mill_during_move_for_player: {possible_mill_during_move_for_player}
       removed_opponent_player_count: {removed_opponent_player_count}
+      non_movable_mens_opponent_player_count: {non_movable_mens_opponent_player_count}
       mill_every_move_player: {mill_every_move_for_player}
 
       definite_mills_for_opponent_player_in_next_move: {definite_mills_for_opponent_player_in_next_move}
       possible_mills_for_opponent_player: {possible_mills_for_opponent_player}
       possible_mill_during_move_for_opponent_player: {possible_mill_during_move_for_opponent_player}
       removed_player_count: {removed_player_count}
+      non_movable_mens_current_player_count: {non_movable_mens_current_player_count}
       mill_every_move_opponent_player: {mill_every_move_for_opponent_player}
       """)
 
+      # print("Current Player Score: ", current_player_score)
+      # print("Opponent Player Score: ", opponent_player_score)
+
+    mill_every_move_player_weight = 6
+
+    # if it's moving time, then increase the priority of the mill every move
+    if self.cell_placed_count >= self.total_cells_to_place:
+      mill_every_move_player_weight = 20
+
     score: int = (
       (13 * removed_opponent_player_count)
-      + (5 * mill_every_move_for_player)
+      + (mill_every_move_player_weight * mill_every_move_for_player)
       + (4 * definite_mills_for_player_in_next_move)
       + (3 * possible_mills_for_player)
       + (3 * possible_mill_during_move_for_player)
+      + (2 * non_movable_mens_opponent_player_count)
       - (10 * removed_player_count)
-      - (4 * mill_every_move_for_opponent_player)
+      - ((mill_every_move_player_weight - 1) * mill_every_move_for_opponent_player)
       - (3 * definite_mills_for_opponent_player_in_next_move)
       - (2 * possible_mills_for_opponent_player)
       - (2 * possible_mill_during_move_for_opponent_player)
+      - (1 * non_movable_mens_current_player_count)
     )
     # print("Score: ", score)
+
+    # score = current_player_score - opponent_player_score
 
     return score
 
@@ -533,56 +591,58 @@ def start_game():
         f"Possible moves for player {game_board.current_player} are: {game_board.possible_movable_mens}"
       )
 
-    if game_board.current_player == 3:
-      depth = 3
+    # if game_board.current_player == 3:
+    #   depth = 3
 
-      if game_board.next_action == "selectToMove":
-        next_action_possible_positions = game_board.possible_movable_mens
-      elif game_board.next_action == "selectDestination":
-        next_action_possible_positions = game_board.possible_movable_destinations
-      elif game_board.next_action == "selectToRemove":
-        next_action_possible_positions = game_board.removable_opponent_cells
-      else:
-        next_action_possible_positions = game_board.get_all_empty_locations()
+    #   if game_board.next_action == "selectToMove":
+    #     next_action_possible_positions = game_board.possible_movable_mens
+    #   elif game_board.next_action == "selectDestination":
+    #     next_action_possible_positions = game_board.possible_movable_destinations
+    #   elif game_board.next_action == "selectToRemove":
+    #     next_action_possible_positions = game_board.removable_opponent_cells
+    #   else:
+    #     next_action_possible_positions = game_board.get_all_empty_locations()
 
-      if game_board.cell_placed_count >= game_board.total_cells_to_place:
-        depth = 8
+    #   if game_board.cell_placed_count >= game_board.total_cells_to_place:
+    #     depth = 8
 
-      # Get the time taken for getting the best move
-      start_time = time.time()
+    #   # Get the time taken for getting the best move
+    #   start_time = time.time()
 
-      # For each next action get the min max value and store it and choose the best one.
-      min_max_values: List[Tuple[int, int, List[int]]] = []
-      for next_action in next_action_possible_positions:
-        game_board_copied = copy.deepcopy(game_board)
-        min_max_value, initial_action, moves_performed = min_max(
-          # min_max_value = min_max(
-          game_board_copied,
-          depth,
-          next_action,
-          False,
-          -9999999999,
-          9999999999,
-          True,
-        )
-        min_max_values.append(
-          (
-            initial_action,
-            min_max_value,
-            # [],
-            moves_performed[len(game_board.moves_performed) - 1 :],
-          )
-        )
+    #   # For each next action get the min max value and store it and choose the best one.
+    #   min_max_values: List[Tuple[int, int, List[int]]] = []
+    #   for next_action in next_action_possible_positions:
+    #     game_board_copied = copy.deepcopy(game_board)
+    #     min_max_value, initial_action, moves_performed = (
+    #       min_max_with_alpha_beta_pruning(
+    #         # min_max_value = min_max(
+    #         game_board_copied,
+    #         depth,
+    #         next_action,
+    #         False,
+    #         -9999999999,
+    #         9999999999,
+    #         True,
+    #       )
+    #     )
+    #     min_max_values.append(
+    #       (
+    #         initial_action,
+    #         min_max_value,
+    #         # [],
+    #         moves_performed[len(game_board.moves_performed) - 1 :],
+    #       )
+    #     )
 
-      print("Min Max Values: ", min_max_values)
-      # Print the best move
-      best_move = max(min_max_values, key=lambda x: x[1])
+    #   print("Min Max Values: ", min_max_values)
+    #   # Print the best move
+    #   best_move = max(min_max_values, key=lambda x: x[1])
 
-      print("Best Move: ", best_move)
-      print("Time Taken: ", time.time() - start_time)
-      game_board.perform_next_move(best_move[1])
+    #   print("Best Move: ", best_move)
+    #   print("Time Taken: ", time.time() - start_time)
+    #   game_board.perform_next_move(best_move[1])
 
-      continue
+    #   continue
 
     if game_board.current_player == 2:
       best_move = get_next_best_move(game_board)
@@ -659,7 +719,7 @@ def get_next_best_move(game_board: Board) -> Tuple[int, int, List[int]]:
     ]
     # print("Args:", args)
     # exit(0)
-    results = pool.starmap(min_max, args)
+    results = pool.starmap(min_max_with_alpha_beta_pruning, args)
     # Wait until all the processes are finished.
     pool.close()
     pool.join()
@@ -683,7 +743,7 @@ explored_states: Dict[str, int] = {}
 c = 0
 
 
-def min_max(
+def min_max_with_alpha_beta_pruning(
   game_board: Board,
   depth: int,
   initial_action: int,
@@ -735,10 +795,10 @@ def min_max(
         value = max(value, explored_states[game_board_string])
         continue
 
-      if game_board.current_player == 1:
+      if game_board_copied.current_player == 1:
         maximizing_player = False
 
-      min_max_value, initial_action, moves_performed = min_max(
+      min_max_value, initial_action, moves_performed = min_max_with_alpha_beta_pruning(
         # min_max_value = min_max(
         game_board_copied,
         depth - 1,
@@ -769,10 +829,10 @@ def min_max(
         value = min(value, explored_states[game_board_string])
         continue
 
-      if game_board.current_player == 2:
+      if game_board_copied.current_player == 2:
         maximizing_player = True
 
-      min_max_value, initial_action, moves_performed = min_max(
+      min_max_value, initial_action, moves_performed = min_max_with_alpha_beta_pruning(
         # min_max_value = min_max(
         game_board_copied,
         depth - 1,

@@ -359,21 +359,21 @@ class Board:
 
     # Calculate this only during the player's turn
 
-    if self.cell_placed_count >= self.total_cells_to_place:
-      # Get all movable mens
-      all_movable_men: List[int] = []
-      all_movable_men += self.get_player_indexes(self.board, player)
-      all_movable_men += self.get_player_indexes(self.board, opponent_player)
+    # Get all movable mens
+    all_movable_men: List[int] = []
+    all_movable_men += self.get_player_indexes(self.board, player)
+    all_movable_men += self.get_player_indexes(self.board, opponent_player)
 
-      for men in all_movable_men:
-        destinations: List[int] = self.get_all_neighbors_with_type(men, 0)
+    for men in all_movable_men:
+      destinations: List[int] = self.get_all_neighbors_with_type(men, 0)
 
-        if len(destinations) == 0:
-          if self.board[men] == self.current_player:
-            non_movable_mens_current_player_count += 1
-          else:
-            non_movable_mens_opponent_player_count += 1
+      if len(destinations) == 0:
+        if self.board[men] == self.current_player:
+          non_movable_mens_current_player_count += 1
+        else:
+          non_movable_mens_opponent_player_count += 1
 
+      if self.cell_placed_count >= self.total_cells_to_place:
         movable_men_mills = self.get_mills_for_index(men)
 
         # For each destination, get mills
@@ -685,7 +685,7 @@ def start_game():
 
 
 def get_next_best_move(game_board: Board) -> Tuple[int, int, List[int]]:
-  depth = 3
+  depth = 4
 
   if game_board.next_action == "selectToMove":
     next_action_possible_positions = game_board.possible_movable_mens
@@ -697,7 +697,7 @@ def get_next_best_move(game_board: Board) -> Tuple[int, int, List[int]]:
     next_action_possible_positions = game_board.get_all_empty_locations()
 
   if game_board.cell_placed_count >= game_board.total_cells_to_place:
-    depth = 8
+    depth = 12
 
   # For each next action get the min max value and store it and choose the best one.
   min_max_values: List[Tuple[int, int, List[int]]] = []

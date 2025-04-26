@@ -133,7 +133,7 @@ class Board:
 
       self.current_mill_indexes = []
 
-      # Check if there is a mill formation
+      # Get all the mills in the current state of the board
       for i, mill in enumerate(self.mills):
         # Track all the mills that has been formed for both the players.
         if (self.board[mill[0]] == self.board[mill[1]] == self.board[mill[2]]) and (
@@ -141,6 +141,8 @@ class Board:
         ):
           self.current_mill_indexes.append(i)
 
+      # Check if there is a mill formation
+      for i, mill in enumerate(self.mills):
         if index not in mill:
           continue
 
@@ -150,11 +152,6 @@ class Board:
           == self.board[mill[2]]
           == self.current_player
         ):
-          # Add the mill index to the current mill indexes, only if it is not already present
-          # TODO: If the current mill list getting updated here, then remove it in other part.
-          # if i not in self.current_mill_indexes:
-          #   self.current_mill_indexes.append(i)
-
           # Mill has formed, now change the action and return
           self.next_action = "selectToRemove"
           self.removable_opponent_cells = []
@@ -163,8 +160,6 @@ class Board:
           opponent_player = 2 if self.current_player == 1 else 1
 
           opponent_player_mills = self.get_player_mills(opponent_player)
-
-          # TODO: Some of the older mills are not appending to the list. Needs verification
 
           for i in self.get_player_indexes(self.board, opponent_player):
             if i not in opponent_player_mills:

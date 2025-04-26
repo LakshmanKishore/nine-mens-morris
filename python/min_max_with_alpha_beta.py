@@ -418,38 +418,6 @@ class Board:
             else:
               possible_mill_during_move_for_opponent_player += 1
 
-    # current_player_score: int = int(
-    #   "".join(
-    #     [
-    #       str(i)
-    #       for i in [
-    #         removed_opponent_player_count,
-    #         mill_every_move_for_player,
-    #         definite_mills_for_player_in_next_move,
-    #         possible_mills_for_player,
-    #         possible_mill_during_move_for_player,
-    #         non_movable_mens_opponent_player_count,
-    #       ]
-    #     ]
-    #   )
-    # )
-
-    # opponent_player_score: int = int(
-    #   "".join(
-    #     [
-    #       str(i)
-    #       for i in [
-    #         removed_player_count,
-    #         mill_every_move_for_opponent_player,
-    #         definite_mills_for_opponent_player_in_next_move,
-    #         possible_mills_for_opponent_player,
-    #         possible_mill_during_move_for_opponent_player,
-    #         non_movable_mens_current_player_count,
-    #       ]
-    #     ]
-    #   )
-    # )
-
     if print_heuristics:
       print(f"""
       definite_mills_for_player_in_next_move: {definite_mills_for_player_in_next_move}
@@ -466,9 +434,6 @@ class Board:
       non_movable_mens_current_player_count: {non_movable_mens_current_player_count}
       mill_every_move_opponent_player: {mill_every_move_for_opponent_player}
       """)
-
-      # print("Current Player Score: ", current_player_score)
-      # print("Opponent Player Score: ", opponent_player_score)
 
     mill_every_move_player_weight = 6
 
@@ -490,9 +455,6 @@ class Board:
       - (2 * possible_mill_during_move_for_opponent_player)
       - (1 * non_movable_mens_current_player_count)
     )
-    # print("Score: ", score)
-
-    # score = current_player_score - opponent_player_score
 
     return score
 
@@ -585,59 +547,6 @@ def start_game():
       print(
         f"Possible moves for player {game_board.current_player} are: {game_board.possible_movable_mens}"
       )
-
-    # if game_board.current_player == 3:
-    #   depth = 3
-
-    #   if game_board.next_action == "selectToMove":
-    #     next_action_possible_positions = game_board.possible_movable_mens
-    #   elif game_board.next_action == "selectDestination":
-    #     next_action_possible_positions = game_board.possible_movable_destinations
-    #   elif game_board.next_action == "selectToRemove":
-    #     next_action_possible_positions = game_board.removable_opponent_cells
-    #   else:
-    #     next_action_possible_positions = game_board.get_all_empty_locations()
-
-    #   if game_board.cell_placed_count >= game_board.total_cells_to_place:
-    #     depth = 8
-
-    #   # Get the time taken for getting the best move
-    #   start_time = time.time()
-
-    #   # For each next action get the min max value and store it and choose the best one.
-    #   min_max_values: List[Tuple[int, int, List[int]]] = []
-    #   for next_action in next_action_possible_positions:
-    #     game_board_copied = copy.deepcopy(game_board)
-    #     min_max_value, initial_action, moves_performed = (
-    #       min_max_with_alpha_beta_pruning(
-    #         # min_max_value = min_max(
-    #         game_board_copied,
-    #         depth,
-    #         next_action,
-    #         False,
-    #         -9999999999,
-    #         9999999999,
-    #         True,
-    #       )
-    #     )
-    #     min_max_values.append(
-    #       (
-    #         initial_action,
-    #         min_max_value,
-    #         # [],
-    #         moves_performed[len(game_board.moves_performed) - 1 :],
-    #       )
-    #     )
-
-    #   print("Min Max Values: ", min_max_values)
-    #   # Print the best move
-    #   best_move = max(min_max_values, key=lambda x: x[1])
-
-    #   print("Best Move: ", best_move)
-    #   print("Time Taken: ", time.time() - start_time)
-    #   game_board.perform_next_move(best_move[1])
-
-    #   continue
 
     if game_board.current_player == 2:
       best_move = get_next_best_move(game_board)

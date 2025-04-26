@@ -253,7 +253,7 @@ export class Board {
       this.board[index] = this.currentPlayer
       this.currentMillIndexes = []
 
-      // Check for mill formations
+      // Get all the mills in the current state of the board
       for (let i = 0; i < this.mills.length; i++) {
         const mill = this.mills[i]
 
@@ -265,6 +265,11 @@ export class Board {
         ) {
           this.currentMillIndexes.push(i)
         }
+      }
+
+      // Check if there is a mill formation
+      for (let i = 0; i < this.mills.length; i++) {
+        const mill = this.mills[i]
 
         if (!mill.includes(index)) {
           continue
@@ -490,24 +495,24 @@ export class Board {
     let nonMovableMensCurrentPlayerCount = 0
     let nonMovableMensOpponentPlayerCount = 0
 
-    if (this.cellPlacedCount >= this.totalCellsToPlace) {
-      // Get all movable pieces
-      const allMovableMen: number[] = [
-        ...this.getPlayerIndexes(this.board, player),
-        ...this.getPlayerIndexes(this.board, opponentPlayer),
-      ]
+    // Get all movable pieces
+    const allMovableMen: number[] = [
+      ...this.getPlayerIndexes(this.board, player),
+      ...this.getPlayerIndexes(this.board, opponentPlayer),
+    ]
 
-      for (const men of allMovableMen) {
-        const destinations = this.getAllNeighborsWithType(men, 0)
+    for (const men of allMovableMen) {
+      const destinations = this.getAllNeighborsWithType(men, 0)
 
-        if (destinations.length === 0) {
-          if (this.board[men] === this.currentPlayer) {
-            nonMovableMensCurrentPlayerCount++
-          } else {
-            nonMovableMensOpponentPlayerCount++
-          }
+      if (destinations.length === 0) {
+        if (this.board[men] === this.currentPlayer) {
+          nonMovableMensCurrentPlayerCount++
+        } else {
+          nonMovableMensOpponentPlayerCount++
         }
+      }
 
+      if (this.cellPlacedCount >= this.totalCellsToPlace) {
         const movableMenMills = this.getMillsForIndex(men)
 
         for (const destination of destinations) {
@@ -558,7 +563,7 @@ export class Board {
           }
 
           // Check for potential mills in the next move
-          const focusMill = movableMenMills[0].includes(men)
+          const focusMill = destinationMills[0].includes(men)
             ? destinationMills[1]
             : destinationMills[0]
 
@@ -657,7 +662,7 @@ const exploredStates: { [key: string]: number } = {}
  * Get the best move for the AI player
  */
 export function getNextBestMove(gameBoard: Board): [number, number, number[]] {
-  let depth = 3
+  let depth = 4
 
   // Determine possible moves based on current game state
   let nextActionPossiblePositions: number[] = []
@@ -674,7 +679,7 @@ export function getNextBestMove(gameBoard: Board): [number, number, number[]] {
 
   // Increase search depth for movement phase
   if (gameBoard.cellPlacedCount >= gameBoard.totalCellsToPlace) {
-    depth = 6
+    depth = 16
   }
 
   // Store min-max values for each possible move
@@ -759,7 +764,8 @@ export function minMaxWithAlphaBetaPruning(
 
   if (maximizingPlayer) {
     let value = -Infinity
-    let resultMoves: number[] = []
+    let minMaxValue = -Infinity
+    let movesPerformed: number[] = []
 
     for (const nextActionPosition of nextActionPossiblePositions) {
       const gameBoardCopy = cloneBoard(gameBoard)
@@ -776,37 +782,43 @@ export function minMaxWithAlphaBetaPruning(
       }
 
       // Determine if next layer should maximize or minimize
-      const nextMaximizingPlayer = gameBoardCopy.currentPlayer !== 1
+      if (gameBoardCopy.currentPlayer === 1) {
+        maximizingPlayer = false
+      }
 
-      const [minMaxValue, initAction, movesPerformed] =
+      ;[minMaxValue, initialAction, movesPerformed] =
         minMaxWithAlphaBetaPruning(
           gameBoardCopy,
           depth - 1,
           initialAction,
-          nextMaximizingPlayer,
+          maximizingPlayer,
           alpha,
           beta,
           false
         )
 
-      if (minMaxValue > value) {
-        value = minMaxValue
-        resultMoves = movesPerformed
-      }
-
+      //   if (minMaxValue > value) {
+      //     value = minMaxValue
+      //     resultMoves = movesPerformed
+      //   }
+      value = Math.max(value, minMaxValue)
       alpha = Math.max(alpha, value)
-      if (beta <= alpha) {
-        break // Beta cutoff
+      //   if (beta <= alpha) {
+      //     break // Beta cutoff
+      //   }
+      if (alpha >= beta) {
+        return [value, initialAction, movesPerformed]
       }
     }
 
     // Store result for this board state
     exploredStates[boardString] = value
-    return [value, initialAction, resultMoves]
+    return [value, initialAction, movesPerformed]
   } else {
     // Minimizing player
     let value = Infinity
-    let resultMoves: number[] = []
+    let minMaxValue = Infinity
+    let movesPerformed: number[] = []
 
     for (const nextActionPosition of nextActionPossiblePositions) {
       const gameBoardCopy = cloneBoard(gameBoard)
@@ -823,33 +835,37 @@ export function minMaxWithAlphaBetaPruning(
       }
 
       // Determine if next layer should maximize or minimize
-      const nextMaximizingPlayer = gameBoardCopy.currentPlayer === 2
-
-      const [minMaxValue, initAction, movesPerformed] =
+      if (gameBoardCopy.currentPlayer === 2) {
+        maximizingPlayer = true
+      }
+      ;[minMaxValue, initialAction, movesPerformed] =
         minMaxWithAlphaBetaPruning(
           gameBoardCopy,
           depth - 1,
           initialAction,
-          nextMaximizingPlayer,
+          maximizingPlayer,
           alpha,
           beta,
           false
         )
 
-      if (minMaxValue < value) {
-        value = minMaxValue
-        resultMoves = movesPerformed
-      }
-
+      //   if (minMaxValue < value) {
+      //     value = minMaxValue
+      //     resultMoves = movesPerformed
+      //   }
+      value = Math.min(value, minMaxValue)
       beta = Math.min(beta, value)
-      if (beta <= alpha) {
-        break // Alpha cutoff
+      if (alpha >= beta) {
+        return [value, initialAction, movesPerformed]
       }
+      //   if (beta <= alpha) {
+      //     break // Alpha cutoff
+      //   }
     }
 
     // Store result for this board state
     exploredStates[boardString] = value
-    return [value, initialAction, resultMoves]
+    return [value, initialAction, movesPerformed]
   }
 }
 

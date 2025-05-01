@@ -9,10 +9,11 @@ const board = document.getElementById("board")!
 const playersSection = document.getElementById("players-section")!
 const gameBoardSVG = document.getElementById("game-board-svg")!
 const modal = document.getElementById("myModal")!
-// Get the button that opens the modal
-const settings = document.getElementById("settings")!
 // Get the <span> element that closes the modal
 const span = document.getElementsByClassName("close")[0]!
+const questionMarkBtn = document.getElementById("question-mark")!
+const modalQuestionMark = document.getElementById("modal-question-mark")!
+const modalSettings = document.getElementById("modal-settings")!
 
 // const selectSound = new Audio(selectSoundAudio)
 
@@ -37,16 +38,42 @@ const LINE_STROKE_WIDTH = (7).toString()
 const CELL_SIZE = (+ELLIPSE_STROKE_WIDTH * 4).toString()
 const STROKE_COLOR = "#e6e6e6"
 
-function getShowPlayerHTML(player: Player, index: number, showYou: boolean) {
+function getShowPlayerHTML(
+  player: Player,
+  index: number,
+  showYou: boolean,
+  remainingMens: number
+) {
   const li = document.createElement("li")
   li.setAttribute("player", index.toString())
 
-  li.innerHTML = `
-  <div class="player-info">
-    <img src="${player.avatarUrl}" />
-    <span>${player.displayName} ${showYou ? "<br>(You)" : ""}
-    </span>
+  let html = `
+  <div class="players-info">
+    <div class="player-info">
+      <img src="${player.avatarUrl}" />
+      <span>${player.displayName} ${showYou ? "<br>(You)" : ""}
+      </span>
+    </div>
+    <div class="remaining-mills">`
+
+  // Create 3 rows with 3 images each
+  for (let remaining = 0; remaining < 9; remaining++) {
+    if (remaining % 3 === 0) {
+      html += `<div class="row">`
+    }
+    if (remaining < remainingMens) {
+      html += `<img src="${player.avatarUrl}" />`
+    }
+    if (remaining % 3 === 2) {
+      html += `</div>`
+    }
+  }
+
+  html += `
+    </div>
   </div>`
+
+  li.innerHTML = html
 
   return li
 }
@@ -126,11 +153,6 @@ function initUI(
     return image
   })
 
-  // When the user clicks on the button, open the modal
-  settings.addEventListener("click", () => {
-    modal.style.display = "block"
-  })
-
   // When the user clicks on <span> (x), close the modal
   span.addEventListener("click", () => {
     modal.style.display = "none"
@@ -143,6 +165,13 @@ function initUI(
     }
   })
 
+  // Setup question mark button to show instructions
+  questionMarkBtn.addEventListener("click", () => {
+    modal.style.display = "block"
+    modalSettings.style.display = "none"
+    modalQuestionMark.style.display = "block"
+  })
+
   playerContainers = playerIds.map((playerId, index) => {
     let li: HTMLLIElement
 
@@ -152,54 +181,16 @@ function initUI(
         avatarUrl: "/src/assets/robot.png",
         playerId: "bot",
       }
-      li = getShowPlayerHTML(player, index, false)
+      li = getShowPlayerHTML(player, index, false, 9)
     } else {
       const player = Rune.getPlayerInfo(playerId)
-      li = getShowPlayerHTML(player, index, player.playerId === yourPlayerId)
+      li = getShowPlayerHTML(player, index, player.playerId === yourPlayerId, 9)
     }
 
     playersSection.appendChild(li)
 
     return li
-
-    // const player = Rune.getPlayerInfo(playerId)
-    // getShowPlayerHTML(player, player.playerId === yourPlayerId)
-    // const li = document.createElement("li")
-    // li.setAttribute("player", index.toString())
-
-    // if (playerId === "bot") {
-    //   li.innerHTML = `<div class="player-info"><img id="bot-image" />
-    //        <span>Bot</span></div>`
-    // } else {
-    //   const player = Rune.getPlayerInfo(playerId)
-    //   li.innerHTML = `<div class="player-info"><img src="${player.avatarUrl}" />
-    //        <span>${
-    //          player.displayName +
-    //          (player.playerId === yourPlayerId ? "<br>(You)" : "")
-    //        }</span></div>`
-    // }
-
-    // li.innerHTML += `<div class="remaining-mills"></div>`
-    // // li.innerHTML += `<span>xxx</span>`
-    // // li.innerHTML += `<span>xxx</span></div>`
-    // // li.innerHTML += `<div><span>xxx</span></div>`
-    // playersSection.appendChild(li)
-
-    // return li
   })
-
-  // if (playerIds.length === 1) {
-  //   const li = document.createElement("li")
-  //   li.setAttribute("player", "bot")
-  //   li.innerHTML = `<div class="player-info"><img id="bot-image" />
-  //          <span>Bot</span></div>`
-  //   li.innerHTML += `<div class="remaining-mills"></div>`
-  //   // li.innerHTML += `<span>xxx</span>`
-  //   // li.innerHTML += `<span>xxx</span></div>`
-  //   // li.innerHTML += `<div><span>xxx</span></div>`
-  //   playersSection.appendChild(li)
-  //   playerContainers.push(li)
-  // }
 }
 
 Rune.initClient({
@@ -230,6 +221,31 @@ Rune.initClient({
     }
 
     playersInfo["bot"] = botPlayerInfo
+
+    // While updating the cell elements, update the player-infos li elements.
+    // clear the playerSection
+    playersSection.innerHTML = ""
+
+    playerContainers = playerIds.map((playerId, index) => {
+      // Calculate the playerId's count
+      let playerIdsCount: number = 0
+      // Based on the cell placed count and the last move player id decide the remaining count.
+      if (game.lastMovePlayerId === playerId && game.cellPlacedCount == 0) {
+        playerIdsCount = 10 - game.cellPlacedCount / 2
+      } else if (game.lastMovePlayerId === playerId) {
+        playerIdsCount = 9 - game.cellPlacedCount / 2
+      } else {
+        playerIdsCount = 9 - game.cellPlacedCount / 2
+      }
+      const li: HTMLLIElement = getShowPlayerHTML(
+        playersInfo[playerId],
+        index,
+        playerId === yourPlayerId,
+        playerIdsCount
+      )
+      playersSection.appendChild(li)
+      return li
+    })
 
     cellImages.forEach((cellImage, index) => {
       const cellValue: PlayerId | null = cells[index].playerId

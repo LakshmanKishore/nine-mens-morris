@@ -13,6 +13,14 @@ html {
   color: #e6e6e6;
   font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica,
     Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol";
+  width: 100%;
+  height: 100%;
+  overflow: hidden; /* Prevent scrolling on the body */
+  box-sizing: border-box; /* Include padding in element width */
+}
+
+*, *:before, *:after {
+  box-sizing: inherit; /* Ensure all elements use border-box */
 }
 
 h2 {
@@ -30,17 +38,18 @@ h2 {
 #game-container {
   display: flex;
   flex-direction: column;
-  /* height: 100vh; */
+  height: 100%;
   align-items: center;
-  /* justify-content: space-around; */
+  padding: 0.5rem;
+  overflow: hidden;
 }
 
 #board {
   position: relative;
-  width: 98vw;
-  max-width: min(98vw, 600px);
+  width: 96vw;
+  max-width: min(96vw, 600px);
   aspect-ratio: 1;
-  width: 100%;
+  margin: 0 auto;
 }
 
 #game-board-svg {
@@ -165,10 +174,12 @@ li .remaining-mills {
 }
 
 li img {
-  width: 20vw;
-  height: 20vw;
-  margin-top: 6.4vw;
-  margin-bottom: 2.1vw;
+  width: 18vw;
+  max-width: 60px;
+  height: auto;
+  aspect-ratio: 1;
+  margin-top: 4vw;
+  margin-bottom: 1vw;
 }
 
 li[your-turn="true"] {
@@ -376,4 +387,10 @@ button:disabled {
   height: 20px;
   width: 20px;
   margin: 2px;
+}
+
+#players-section {
+  width: 100%;
+  margin: 0.5rem 0;
+  padding: 0;
 }

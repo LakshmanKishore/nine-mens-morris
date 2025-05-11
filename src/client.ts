@@ -2,8 +2,60 @@ import "./styles.css"
 
 import { Player, PlayerId } from "rune-sdk"
 import { Board, getNextBestMove } from "./min_max.ts"
-// import selectSoundAudio from "./assets/select.wav"
 import { Cells, GameState } from "./logic.ts"
+
+// Import sound assets
+import selectSoundSrc from "./assets/select.wav"
+// We'll need to add these sound files to your assets folder
+import placeSoundSrc from "./assets/place.wav"
+import millSoundSrc from "./assets/mill.wav"
+import removeSoundSrc from "./assets/remove.wav"
+
+// Import the robot image for proper bundling
+import robotImageSrc from "./assets/robot.png"
+
+// Sound Manager for game sound effects
+class SoundManager {
+  private sounds: { [key: string]: HTMLAudioElement } = {}
+  private enabled: boolean = true
+
+  constructor() {
+    // Initialize sounds
+    this.sounds = {
+      select: new Audio(selectSoundSrc),
+      place: new Audio(placeSoundSrc),
+      mill: new Audio(millSoundSrc),
+      remove: new Audio(removeSoundSrc),
+    }
+
+    // Preload sounds
+    Object.values(this.sounds).forEach((sound) => {
+      sound.load()
+    })
+  }
+
+  play(soundName: "select" | "place" | "mill" | "remove"): void {
+    if (!this.enabled) return
+
+    const sound = this.sounds[soundName]
+    if (sound) {
+      // Reset the sound to the beginning if it's already playing
+      sound.currentTime = 0
+      sound.play().catch((err) => console.warn("Audio play failed:", err))
+    }
+  }
+
+  setEnabled(enabled: boolean): void {
+    this.enabled = enabled
+  }
+
+  isEnabled(): boolean {
+    return this.enabled
+  }
+}
+
+// Create a global sound manager instance
+const soundManager = new SoundManager()
 
 // Import functions for bot logic
 function convertGameStateToBoard(game: GameState): Board {
@@ -229,7 +281,7 @@ function initUI(
     if (playerId === "bot") {
       const player: Player = {
         displayName: "Bot",
-        avatarUrl: "/src/assets/robot.png",
+        avatarUrl: robotImageSrc,
         playerId: "bot",
       }
       li = getShowPlayerHTML(player, index, false, 9)
@@ -253,12 +305,55 @@ Rune.initClient({
 
     if (lastMovePlayerId) board.classList.remove("initial")
 
+    // Play sounds based on game state changes
+    // Only play sounds when there's an actual state change (not during initial render)
+    if (lastGameState) {
+      const prevAction = lastGameState.nextAction
+      const prevSelectedIndex = lastGameState.selectedCellIndex
+
+      // Mill formed - when next action changes to selectToRemove
+      if (
+        game.nextAction === "selectToRemove" &&
+        prevAction !== "selectToRemove"
+      ) {
+        soundManager.play("mill")
+      }
+      // Piece removed - when previousAction was selectToRemove but now it's not
+      else if (
+        lastGameState.removableCells.length > 0 &&
+        game.removableCells.length === 0
+      ) {
+        soundManager.play("remove")
+      }
+      // Piece placed - when cell count increases and not during movement phase
+      else if (lastGameState.cellPlacedCount < game.cellPlacedCount) {
+        soundManager.play("place")
+      }
+      // Piece selected for movement - when selectedCellIndex changes from -1 to a value
+      else if (prevSelectedIndex === -1 && game.selectedCellIndex !== -1) {
+        soundManager.play("select")
+      }
+      // Piece moved - when action is selectToDestination and a cell is moved
+      else if (
+        prevAction === "selectDestination" &&
+        game.nextAction !== "selectDestination"
+      ) {
+        // Only play place sound if we aren't forming a mill (which would play mill sound)
+        if (game.nextAction !== "selectToRemove") {
+          soundManager.play("place")
+        }
+      }
+    }
+
+    // Store the current game state for next comparison
+    lastGameState = JSON.parse(JSON.stringify(game))
+
     // Check if it's time for a scheduled bot move
     if (
       game.playingWithBot &&
       game.botTurn &&
       game.botTurnAt > 0 &&
-      currentTime >= lastGameTimeCheck + 500
+      currentTime >= lastGameTimeCheck + 200
     ) {
       lastGameTimeCheck = currentTime
       console.log("Checking scheduled bot move time:", {
@@ -293,7 +388,7 @@ Rune.initClient({
 
     const botPlayerInfo: Player = {
       displayName: "Bot",
-      avatarUrl: "/src/assets/robot.png",
+      avatarUrl: robotImageSrc,
       playerId: "bot",
     }
 
@@ -396,30 +491,40 @@ Rune.initClient({
     if (
       game.playingWithBot &&
       game.lastMovePlayerId !== "bot" &&
-      game.botTurn &&
-      (game.nextAction === "selectToPlace" ||
-        game.nextAction === "selectToMove" ||
-        game.nextAction === "selectToRemove") &&
-      game.removableCells.length === 0
+      game.botTurn
     ) {
-      console.log("Bot should move - Game state:", {
-        playingWithBot: game.playingWithBot,
-        lastMovePlayerId: game.lastMovePlayerId,
-        botTurn: game.botTurn,
-        nextAction: game.nextAction,
-        removableCells: game.removableCells.length,
-      })
+      if (
+        game.nextAction === "selectToRemove" &&
+        game.removableCells.length === 0
+      ) {
+        console.log("Bot won't move - no removable cells")
+        console.log("Game state: ", {
+          playingWithBot: game.playingWithBot,
+          lastMovePlayerId: game.lastMovePlayerId,
+          botTurn: game.botTurn,
+          nextAction: game.nextAction,
+          removableCells: game.removableCells.length,
+        })
+      } else {
+        console.log("Bot should move - Game state:", {
+          playingWithBot: game.playingWithBot,
+          lastMovePlayerId: game.lastMovePlayerId,
+          botTurn: game.botTurn,
+          nextAction: game.nextAction,
+          removableCells: game.removableCells.length,
+        })
 
-      // Clear any existing bot move timer
-      if (botMoveTimer) {
-        clearTimeout(botMoveTimer)
-        botMoveTimer = null
+        // Clear any existing bot move timer
+        if (botMoveTimer) {
+          clearTimeout(botMoveTimer)
+          botMoveTimer = null
+        }
+
+        // Add a slight delay to make the bot's move feel more natural
+        botMoveTimer = window.setTimeout(() => {
+          makeBotMove(game)
+        }, 1000)
       }
-
-      // Add a slight delay to make the bot's move feel more natural
-      botMoveTimer = window.setTimeout(() => {
-        makeBotMove(game)
-      }, 1000)
     } else {
       console.log("Bot won't move due to conditions:", {
         playingWithBot: game.playingWithBot,
@@ -440,17 +545,15 @@ function makeBotMove(game: GameState) {
   if (pendingBotMove !== null) return
 
   // Store the current game state for processing outside of onChange
-  lastGameState = JSON.parse(JSON.stringify(game))
+  const currentGameState = JSON.parse(JSON.stringify(game))
 
   // Schedule the bot move outside of the current onChange execution
   pendingBotMove = window.setTimeout(() => {
-    if (!lastGameState) return
-
     try {
       console.log("Bot is thinking about its move...")
 
       // Convert the game state to a Board object for the min-max algorithm
-      const gameBoard = convertGameStateToBoard(lastGameState)
+      const gameBoard = convertGameStateToBoard(currentGameState)
       console.log("Game board state prepared for bot")
 
       // Get the best move using the min-max algorithm
@@ -460,6 +563,11 @@ function makeBotMove(game: GameState) {
       // Make the bot's move
       if (bestMove !== undefined) {
         console.log("Bot is making move to position:", bestMove)
+
+        // Important: Update lastGameState before calling handleClick
+        // This ensures sound effects will work for bot moves
+        lastGameState = currentGameState
+
         Rune.actions.handleClick({
           cellIndex: bestMove,
           fromBot: true,
@@ -472,7 +580,6 @@ function makeBotMove(game: GameState) {
     } finally {
       // Clear pending state
       pendingBotMove = null
-      lastGameState = null
     }
   }, 50) // Short delay to ensure we're outside the onChange execution
 }

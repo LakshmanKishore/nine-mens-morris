@@ -1,5 +1,4 @@
 import type { GameOverResult, PlayerId, RuneClient } from "rune-sdk"
-import { Board, getNextBestMove } from "./min_max"
 
 // export type Cells = PlayerId[]
 export type Cells = {
@@ -318,50 +317,52 @@ function handleClick(game: GameState, playerId: PlayerId, cellIndex: number) {
 
 /**
  * Convert GameState to Board for min-max algorithm
+ * Note: This function is kept here as a reference but is no longer used on the server side.
+ * A similar function is now implemented on the client side.
  */
-function convertGameStateToBoard(game: GameState): Board {
-  const board = new Board()
+// function convertGameStateToBoard(game: GameState): Board {
+//   const board = new Board()
 
-  // Copy the board state
-  for (let i = 0; i < game.cells.length; i++) {
-    const cell = game.cells[i]
-    if (cell.playerId === null) {
-      board.board[i] = 0
-    } else if (cell.playerId === "bot") {
-      board.board[i] = 2 // Bot is player 2 in the min-max algorithm
-    } else {
-      board.board[i] = 1 // Human is player 1 in the min-max algorithm
-    }
-  }
+//   // Copy the board state
+//   for (let i = 0; i < game.cells.length; i++) {
+//     const cell = game.cells[i]
+//     if (cell.playerId === null) {
+//       board.board[i] = 0
+//     } else if (cell.playerId === "bot") {
+//       board.board[i] = 2 // Bot is player 2 in the min-max algorithm
+//     } else {
+//       board.board[i] = 1 // Human is player 1 in the min-max algorithm
+//     }
+//   }
 
-  // Set game state properties
-  board.cellPlacedCount = game.cellPlacedCount
-  board.totalCellsToPlace = game.totalCellsToPlace
+//   // Set game state properties
+//   board.cellPlacedCount = game.cellPlacedCount
+//   board.totalCellsToPlace = game.totalCellsToPlace
 
-  // Map the next action
-  board.nextAction = game.nextAction
+//   // Map the next action
+//   board.nextAction = game.nextAction
 
-  // Set the current player (bot is always player 2)
-  board.currentPlayer = 2
+//   // Set the current player (bot is always player 2)
+//   board.currentPlayer = 2
 
-  // Pass any removable cells
-  if (game.removableCells.length > 0) {
-    board.removableOpponentCells = game.removableCells
-  }
+//   // Pass any removable cells
+//   if (game.removableCells.length > 0) {
+//     board.removableOpponentCells = game.removableCells
+//   }
 
-  // If we're selecting a destination, set the index to move
-  if (game.nextAction === "selectDestination") {
-    board.selectedIndexToMove = game.selectedCellIndex
-    board.possibleMovableDestinations = game.neighborHighlightCells
-  }
+//   // If we're selecting a destination, set the index to move
+//   if (game.nextAction === "selectDestination") {
+//     board.selectedIndexToMove = game.selectedCellIndex
+//     board.possibleMovableDestinations = game.neighborHighlightCells
+//   }
 
-  // If we're selecting to move, set the possible movable men
-  if (game.nextAction === "selectToMove") {
-    board.possibleMovableMens = game.clickableCells
-  }
+//   // If we're selecting to move, set the possible movable men
+//   if (game.nextAction === "selectToMove") {
+//     board.possibleMovableMens = game.clickableCells
+//   }
 
-  return board
-}
+//   return board
+// }
 
 Rune.initLogic({
   minPlayers: 1,
@@ -592,29 +593,9 @@ Rune.initLogic({
     },
   },
 
-  update: ({ game }) => {
-    if (game.botTurn && Rune.gameTime() >= game.botTurnAt) {
-      // Set the bot turn to false
-      game.botTurn = false
-
-      // Convert the game state to the Board format used by min-max
-      const board = convertGameStateToBoard(game)
-
-      // Get the best move using the min-max algorithm with alpha-beta pruning
-      const [a, bestMove] = getNextBestMove(board)
-      console.log(a)
-
-      // Apply the best move
-      handleClick(game, "bot", bestMove)
-
-      // If the last move player id is set to bot, then stop the bot's turn
-      if (game.lastMovePlayerId === "bot") return
-
-      // Else set the bot turn to true to make the bot's turn again
-      game.botTurnAt = Rune.gameTime() + 1500
-      game.botTurn = true
-    }
-  },
+  // update: () => {
+  //   // Bot movement has been moved to the client side
+  // },
 
   events: {
     playerJoined: (playerId, { game }) => {

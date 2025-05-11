@@ -1,9 +1,54 @@
 import "./styles.css"
 
 import { Player, PlayerId } from "rune-sdk"
-
+import { Board, getNextBestMove } from "./min_max.ts"
 // import selectSoundAudio from "./assets/select.wav"
-import { Cells } from "./logic.ts"
+import { Cells, GameState } from "./logic.ts"
+
+// Import functions for bot logic
+function convertGameStateToBoard(game: GameState): Board {
+  const board = new Board()
+
+  // Copy the board state
+  for (let i = 0; i < game.cells.length; i++) {
+    const cell = game.cells[i]
+    if (cell.playerId === null) {
+      board.board[i] = 0
+    } else if (cell.playerId === "bot") {
+      board.board[i] = 2 // Bot is player 2 in the min-max algorithm
+    } else {
+      board.board[i] = 1 // Human is player 1 in the min-max algorithm
+    }
+  }
+
+  // Set game state properties
+  board.cellPlacedCount = game.cellPlacedCount
+  board.totalCellsToPlace = game.totalCellsToPlace
+
+  // Map the next action
+  board.nextAction = game.nextAction
+
+  // Set the current player (bot is always player 2)
+  board.currentPlayer = 2
+
+  // Pass any removable cells
+  if (game.removableCells.length > 0) {
+    board.removableOpponentCells = game.removableCells
+  }
+
+  // If we're selecting a destination, set the index to move
+  if (game.nextAction === "selectDestination") {
+    board.selectedIndexToMove = game.selectedCellIndex
+    board.possibleMovableDestinations = game.neighborHighlightCells
+  }
+
+  // If we're selecting to move, set the possible movable men
+  if (game.nextAction === "selectToMove") {
+    board.possibleMovableMens = game.clickableCells
+  }
+
+  return board
+}
 
 const board = document.getElementById("board")!
 const playersSection = document.getElementById("players-section")!
@@ -18,8 +63,14 @@ const modalSettings = document.getElementById("modal-settings")!
 // const selectSound = new Audio(selectSoundAudio)
 
 let cellImages: SVGImageElement[], playerContainers: HTMLLIElement[]
+// Add a timer variable to handle bot's moves
+let botMoveTimer: number | null = null
 
-// Define the Constants
+// Add bot timing check to always check if it's time for a bot move
+let lastGameTimeCheck = 0
+let pendingBotMove: number | null = null
+let lastGameState: GameState | null = null
+
 const LINES_COORDINATES = [
   { x1: 0, y1: 300, x2: 200, y2: 300 },
   { x1: 300, y1: 0, x2: 300, y2: 200 },
@@ -194,14 +245,40 @@ function initUI(
 }
 
 Rune.initClient({
-  // onChange: ({ game, yourPlayerId, action }) => {
   onChange: ({ game, yourPlayerId }) => {
     const { cells, playerIds, lastMovePlayerId } = game
+    const currentTime = Date.now()
 
     if (!cellImages) initUI(cells, playerIds, yourPlayerId)
 
     if (lastMovePlayerId) board.classList.remove("initial")
-    // console.log("Here", lastMovePlayerId)
+
+    // Check if it's time for a scheduled bot move
+    if (
+      game.playingWithBot &&
+      game.botTurn &&
+      game.botTurnAt > 0 &&
+      currentTime >= lastGameTimeCheck + 500
+    ) {
+      lastGameTimeCheck = currentTime
+      console.log("Checking scheduled bot move time:", {
+        botTurnAt: game.botTurnAt,
+        gameTime: Rune.gameTime(),
+      })
+
+      if (Rune.gameTime() >= game.botTurnAt) {
+        console.log("It's time for the bot to move based on scheduled time")
+        // Clear any existing bot move timer
+        if (botMoveTimer) {
+          clearTimeout(botMoveTimer)
+          botMoveTimer = null
+        }
+
+        // Make the bot move immediately
+        makeBotMove(game)
+        return
+      }
+    }
 
     // Get all the player ids information
     const playersInfo = playerIds.reduce(
@@ -262,28 +339,14 @@ Rune.initClient({
         cellImage.setAttribute("href", "")
       }
 
-      // Disable the pointer events on the image
-      /*
-        1. If the last move player id is not your player id
-        2. If the cell has a player id
-      */
-      // if (lastMovePlayerId === yourPlayerId || cells[index].playerId) {
-      //   cellImage.setAttribute("disable-click", "1")
-      // } else {
-      //   cellImage.setAttribute("disable-click", "0")
-      // }
-
       // Disable all the other cells other than the clickable cells
       if (game.clickableCells.includes(index)) {
-        // cellImage.setAttribute("disable-click", "0")
         cellImage.setAttribute("clickable", "1")
       } else {
-        // cellImage.setAttribute("disable-click", "1")
         cellImage.setAttribute("clickable", "0")
       }
 
       // If the cell needs to be removed, then set and attribute to remove the cell
-      // if (cells[index].toRemove) {
       if (game.removableCells.includes(index)) {
         cellImage.setAttribute("remove", "1")
       } else {
@@ -291,7 +354,6 @@ Rune.initClient({
       }
 
       // If the cell is part of the mill then it should be highlighted
-      // if (cells[index].isPartOfMill) {
       if (game.highlightedCellsPartOfMill.includes(index)) {
         cellImage.setAttribute("is-part-of-mill", "true")
       } else {
@@ -330,8 +392,87 @@ Rune.initClient({
       String(yourPlayerId !== lastMovePlayerId)
     )
 
-    // Play a sound after placing a cell
-    // console.log("selectSound", selectSound, action)
-    // if (action && action.name === "handleClick") selectSound.play()
+    // Handle bot's moves on the client side
+    if (
+      game.playingWithBot &&
+      game.lastMovePlayerId !== "bot" &&
+      game.botTurn &&
+      (game.nextAction === "selectToPlace" ||
+        game.nextAction === "selectToMove" ||
+        game.nextAction === "selectToRemove") &&
+      game.removableCells.length === 0
+    ) {
+      console.log("Bot should move - Game state:", {
+        playingWithBot: game.playingWithBot,
+        lastMovePlayerId: game.lastMovePlayerId,
+        botTurn: game.botTurn,
+        nextAction: game.nextAction,
+        removableCells: game.removableCells.length,
+      })
+
+      // Clear any existing bot move timer
+      if (botMoveTimer) {
+        clearTimeout(botMoveTimer)
+        botMoveTimer = null
+      }
+
+      // Add a slight delay to make the bot's move feel more natural
+      botMoveTimer = window.setTimeout(() => {
+        makeBotMove(game)
+      }, 1000)
+    } else {
+      console.log("Bot won't move due to conditions:", {
+        playingWithBot: game.playingWithBot,
+        lastMovePlayerId: game.lastMovePlayerId,
+        botTurn: game.botTurn,
+        nextAction: game.nextAction,
+        removableCellsLength: game.removableCells.length,
+      })
+    }
   },
 })
+
+/**
+ * Make the bot's move using the min-max algorithm
+ */
+function makeBotMove(game: GameState) {
+  // Don't calculate moves from inside onChange - schedule for after current execution
+  if (pendingBotMove !== null) return
+
+  // Store the current game state for processing outside of onChange
+  lastGameState = JSON.parse(JSON.stringify(game))
+
+  // Schedule the bot move outside of the current onChange execution
+  pendingBotMove = window.setTimeout(() => {
+    if (!lastGameState) return
+
+    try {
+      console.log("Bot is thinking about its move...")
+
+      // Convert the game state to a Board object for the min-max algorithm
+      const gameBoard = convertGameStateToBoard(lastGameState)
+      console.log("Game board state prepared for bot")
+
+      // Get the best move using the min-max algorithm
+      const bestMoveResult = getNextBestMove(gameBoard)
+      const bestMove = bestMoveResult[1]
+
+      // Make the bot's move
+      if (bestMove !== undefined) {
+        console.log("Bot is making move to position:", bestMove)
+        Rune.actions.handleClick({
+          cellIndex: bestMove,
+          fromBot: true,
+        })
+      } else {
+        console.error("Bot failed to find a valid move")
+      }
+    } catch (error) {
+      console.error("Error in bot move calculation:", error)
+    } finally {
+      // Clear pending state
+      pendingBotMove = null
+      lastGameState = null
+    }
+  }, 50) // Short delay to ensure we're outside the onChange execution
+}
